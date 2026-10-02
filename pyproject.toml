@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "astrodyn-tools"          # working name, to be renamed before publishing
+version = "0.1.0"
+description = "Flight-dynamics tools and benchmark for evaluating scientific tool use by LLM agents"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
