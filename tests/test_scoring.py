@@ -95,3 +95,16 @@ def test_loader_filters(tmp_path):
     assert len(load_tasks(p, split="dev")) == 2
     assert len(load_tasks(p, family="f1")) == 2
     assert len(load_tasks(p, split="test", family="f1")) == 1
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), True, 10**400])
+def test_nonfinite_numbers_and_booleans_are_not_numeric_successes(value):
+    import json
+    task = Task(id="finite-number", family="period", level="simple", prompt="Compute a value.",
+                reference={"period_s": 1.0}, tolerance={"period_s": .1})
+    result = score(task, json.dumps({"answer": {"period_s": value}}))
+    assert result["correct"] is False
+
+
+def test_string_refusal_is_not_a_valid_refusal():
+    task = Task(id="refusal", family="trap", level="trap", prompt="Invalid orbit.", reference={"refuse": True})
+    assert score(task, '{"refuse":"false","reason":"invalid"}')["correct"] is False

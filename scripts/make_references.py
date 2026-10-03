@@ -8,6 +8,7 @@ from astrodyn_tools.maneuvers import hohmann_transfer
 from astrodyn_tools.eclipse import eclipse_windows
 
 SUN_X_NEG = [-1.0, 0.0, 0.0]
+CIRCULAR_SPEED_7000 = float(np.sqrt(MU_EARTH / 7000.0))
 
 TASKS_SPECS = [
     # --- PÉRIODE ORBITALE (4 simples) ---
@@ -173,11 +174,18 @@ TASKS_SPECS = [
         "id": "multi-001",
         "family": "multi_step",
         "level": "multi_step",
-        "prompt": "Calculer le temps de vol d'un transfert de Hohmann entre 7000 km et 9000 km, puis propager l'orbite de départ pendant cette durée. Donner la position x finale.",
+        "prompt": (
+            "Autour de la Terre, calculer le temps de vol d'un transfert de Hohmann "
+            "entre deux orbites circulaires de rayons 7000 km et 9000 km. "
+            "Utiliser ensuite cette durée pour propager l'état de l'orbite de départ "
+            f"en ECI : r0=[7000, 0, 0] km, v0=[0, {CIRCULAR_SPEED_7000}, 0] km/s. "
+            "Propager cet état initial sans appliquer les impulsions du transfert. "
+            "Donner la coordonnée x finale dans answer.r_final_x_km."
+        ),
         "expected_tools": ["hohmann_transfer", "propagate_orbit"],
-        "params": {"r1": 7000.0, "r2": 9000.0},
+        "params": {"r1": 7000.0, "r2": 9000.0, "r0": [7000.0, 0.0, 0.0], "v0": [0.0, CIRCULAR_SPEED_7000, 0.0]},
         "target": "r_final_x_km",
-        "tol": 5.0,
+        "tol": 0.1,
     },
     {
         "id": "multi-002",
@@ -320,8 +328,7 @@ def generate_references(output_file: Path) -> None:
 
             elif tid == "multi-001":
                 h = hohmann_transfer(p["r1"], p["r2"])
-                v0_circ = np.sqrt(MU_EARTH / p["r1"])
-                rf, _ = propagate_kepler(np.array([p["r1"], 0.0, 0.0]), np.array([0.0, v0_circ, 0.0]), h["tof"])
+                rf, _ = propagate_kepler(np.array(p["r0"]), np.array(p["v0"]), h["tof"])
                 ref = {tgt: round(float(rf[0]), 2)}
             elif tid == "multi-002":
                 val = orbital_period(p["r2"])

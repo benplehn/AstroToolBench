@@ -7,10 +7,15 @@ name = "astrodyn-tools"          # working name, to be renamed before publishing
 version = "0.1.0"
 description = "Flight-dynamics tools and benchmark for evaluating scientific tool use by LLM agents"
 requires-python = ">=3.10"
-dependencies = ["numpy>=1.24"]
+dependencies = ["numpy>=1.24", "pydantic>=2,<3"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7"]
+llm = ["openai>=1.30,<4", "python-dotenv>=1,<2"]
+
+[project.scripts]
+atb-inspect = "atb.inspection:main"
+atb-run = "atb.agent_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

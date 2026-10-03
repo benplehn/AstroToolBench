@@ -1,0 +1,268 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "task_id": "period-001",
+    "family": "period",
+    "split": "dev",
+    "api_condition": "C",
+    "base_url": "https://integrate.api.nvidia.com/v1",
+    "started_at_utc": "2026-10-02T21:24:13.491367+00:00",
+    "latency_s": 11.947814417006157,
+    "timeout_s": 60.0,
+    "max_retries": 0,
+    "python_version": "3.12.13",
+    "openai_version": "3.24.0",
+    "benchmark_sha256": "d580fa6f85cf272bb7d8c80d3ba4c6cc7614028abbb1dd2911450d21709a1864"
+  },
+  "request": {
+    "model": "nvidia/nemotron-3-super-120b-a12b",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are a spacecraft flight-dynamics assistant. Use the provided numerical tools for calculations. Do not invent tool results. If the problem is physically invalid or missing essential information, explain why. When a final answer is possible, return {\"answer\": {...}} with explicit units in the keys, or {\"refuse\": true, \"reason\": \"...\"} for an invalid request."
+      },
+      {
+        "role": "user",
+        "content": "Calculer la période orbitale (en secondes) d'un satellite en orbite circulaire à 400 km d'altitude autour de la Terre."
+      }
+    ],
+    "temperature": 0.0,
+    "max_tokens": 4096,
+    "stream": false,
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "orbital_period",
+          "description": "Compute the orbital period of an elliptic or circular Earth orbit. Takes altitude above Earth's surface (km). Returns orbital period in seconds.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "altitude_km": {
+                "type": "number",
+                "minimum": 0.0,
+                "description": "Altitude above Earth's surface in kilometers (not orbital radius)."
+              }
+            },
+            "required": [
+              "altitude_km"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "hohmann_transfer",
+          "description": "Compute coplanar circular-orbit Hohmann transfer impulses and duration. Inputs are initial and final altitudes above Earth's surface in km. Returns dv1 (km/s), dv2 (km/s), dv_total (km/s), and transfer duration (tof in seconds).",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "initial_altitude_km": {
+                "type": "number",
+                "minimum": 0.0,
+                "description": "Departure orbit altitude in kilometers above Earth surface (h1 >= 0)."
+              },
+              "final_altitude_km": {
+                "type": "number",
+                "minimum": 0.0,
+                "description": "Target orbit altitude in kilometers above Earth surface (h2 >= 0)."
+              }
+            },
+            "required": [
+              "initial_altitude_km",
+              "final_altitude_km"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "propagate_orbit",
+          "description": "Propagate a satellite Keplerian state vector in Earth-Centered Inertial (ECI) frame. Takes initial position r0_km [x,y,z], velocity v0_km_s [vx,vy,vz], and propagation duration dt_s (seconds). Returns final position r_final_km [x,y,z] and final velocity v_final_km_s [vx,vy,vz].",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "r0_km": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3,
+                "description": "Initial ECI position vector [x, y, z] in km from Earth center."
+              },
+              "v0_km_s": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3,
+                "description": "Initial ECI velocity vector [vx, vy, vz] in km/s."
+              },
+              "dt_s": {
+                "type": "number",
+                "description": "Propagation elapsed time in seconds (can be positive or negative)."
+              }
+            },
+            "required": [
+              "r0_km",
+              "v0_km_s",
+              "dt_s"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "eclipse_windows",
+          "description": "Compute cylindrical Earth-shadow eclipse entry and exit intervals for an orbit. Takes initial state, unit sun direction vector, and analysis window duration in seconds. Returns list of eclipse intervals [start_s, end_s] and total eclipse duration.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "r0_km": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3,
+                "description": "Initial ECI position [x, y, z] in km."
+              },
+              "v0_km_s": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3,
+                "description": "Initial ECI velocity [vx, vy, vz] in km/s."
+              },
+              "sun_dir": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3,
+                "description": "Unit vector pointing from Earth toward Sun in ECI."
+              },
+              "duration_s": {
+                "type": "number",
+                "minimum": 0.0,
+                "description": "Total observation window duration in seconds."
+              }
+            },
+            "required": [
+              "r0_km",
+              "v0_km_s",
+              "sun_dir",
+              "duration_s"
+            ]
+          }
+        }
+      }
+    ],
+    "tool_choice": "auto"
+  },
+  "response": {
+    "id": "chatcmpl-a12be921-e36f-4dec-abf4-2922129aa0c7",
+    "choices": [
+      {
+        "finish_reason": "tool_calls",
+        "index": 0,
+        "logprobs": null,
+        "message": {
+          "content": null,
+          "refusal": null,
+          "role": "assistant",
+          "annotations": null,
+          "audio": null,
+          "function_call": null,
+          "tool_calls": [
+            {
+              "id": "call-dfc28f6f-d7ca-4619-80a0-97b145469351",
+              "function": {
+                "arguments": "{\"altitude_km\":400}",
+                "name": "orbital_period"
+              },
+              "type": "function"
+            }
+          ],
+          "reasoning_content": "We need to compute orbital period for altitude 400 km. Use orbital_period tool. Provide answer in seconds. Let's call tool."
+        }
+      }
+    ],
+    "created": 1790976254,
+    "model": "nvidia/nemotron-3-super-120b-a12b",
+    "object": "chat.completion",
+    "metadata": null,
+    "moderation": null,
+    "service_tier": null,
+    "system_fingerprint": null,
+    "usage": {
+      "completion_tokens": 61,
+      "prompt_tokens": 1331,
+      "total_tokens": 1392,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": null,
+        "audio_tokens": null,
+        "reasoning_tokens": 29,
+        "rejected_prediction_tokens": null,
+        "text_tokens": null
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": null,
+        "cache_write_tokens": null,
+        "cached_tokens": 0,
+        "image_tokens": null,
+        "text_tokens": null
+      }
+    }
+  },
+  "observations": {
+    "choices": [
+      {
+        "index": 0,
+        "finish_reason": "tool_calls",
+        "tool_call_count": 1,
+        "tool_calls": [
+          {
+            "id": "call-dfc28f6f-d7ca-4619-80a0-97b145469351",
+            "type": "function",
+            "name": "orbital_period",
+            "arguments_type": "str",
+            "arguments_raw": "{\"altitude_km\":400}",
+            "arguments_parsed": {
+              "altitude_km": 400
+            },
+            "arguments_error": null
+          }
+        ]
+      }
+    ],
+    "usage": {
+      "completion_tokens": 61,
+      "prompt_tokens": 1331,
+      "total_tokens": 1392,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": null,
+        "audio_tokens": null,
+        "reasoning_tokens": 29,
+        "rejected_prediction_tokens": null,
+        "text_tokens": null
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": null,
+        "cache_write_tokens": null,
+        "cached_tokens": 0,
+        "image_tokens": null,
+        "text_tokens": null
+      }
+    },
+    "tools_executed": false
+  }
+}

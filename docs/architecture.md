@@ -1,0 +1,137 @@
+# Architecture
+
+AstroToolBench separates the numerical backend, tool interfaces, benchmark data
+and model transport. A bounded agent runner connects model requests to numerical
+execution. Raw completion inspection remains a separate diagnostic path, and
+scoring is performed after the run using the task reference.
+
+## Repository layout
+
+```text
+src/
+  astrodyn_tools/       Numerical routines and physical constants
+  atb/
+    tools.py           B/C function schemas
+    executor.py        Tool dispatch, conversion and result serialization
+    tasks.py           Task model and JSONL loader
+    scoring.py         Final-response parsing and reference comparison
+    client.py          Provider configuration and Chat Completions transport
+    prompts.py         Shared system instructions and prompt-only messages
+    agent.py           Bounded model/tool orchestration and conversation traces
+    agent_cli.py       Single-task execution and scoring command
+    inspection.py      Completion inspection, trace persistence and CLI
+benchmark/
+  tasks.jsonl          Prompts, families, splits, references and tolerances
+scripts/
+  inspect_completion.py  Repository-local wrapper around the inspection CLI
+  run_agent.py           Repository-local wrapper around the agent CLI
+  list_models.py        Provider model discovery
+  make_references.py    Task and reference generation
+results/
+  completions/         Raw request/response traces, excluded from Git
+  traces/<run_id>/      Agent conversations, excluded from Git
+```
+
+Documentation, unit tests and the CI configuration live in `docs/`, `tests/` and
+`.github/workflows/` respectively. The installed `atb-inspect` command calls
+`atb.inspection.main`; `atb-run` calls `atb.agent_cli.main`. Repository wrappers
+call the same implementations with paths anchored to the checkout.
+
+## Numerical backend
+
+`astrodyn_tools` exposes period, propagation, Hohmann transfer, eclipse and closest
+approach routines. It has no dependency on a model provider. Physical assumptions
+and units belong to the numerical routines and their tests.
+
+`atb.tools` describes the subset available to models: period, Hohmann, propagation
+and eclipses. The B and C interfaces wrap the same calculations. C changes the
+input conventions for period and transfer to altitudes and makes units explicit.
+
+`atb.executor.execute_tool(api_version, name, arguments_json)` receives the tool
+name and JSON argument string. It dispatches to a known function, performs the
+interface-specific conversions and returns JSON containing a result or error.
+There is no execution of arbitrary model-generated Python.
+
+## Benchmark data and scoring
+
+`atb.tasks.Task` defines a prompt, family, split, expected tools, numerical
+parameters, reference and tolerances. `load_tasks()` reads JSONL, rejects duplicate
+IDs and supports family/split filtering.
+
+`atb.scoring.score(task, final_text)` evaluates an explicit final-response JSON
+object against the reference. It reports missing fields, incorrect refusals and
+values outside tolerance. Its current scope is final-answer correctness;
+tool-selection and argument correctness need separate evaluation.
+
+References and expected calls remain on the evaluation side. Completion requests
+include only the task prompt, system message and tool schemas. Trace metadata
+records the task ID, family and split for analysis, while reference values and
+tolerances are excluded from the trace.
+
+## Model transport and inspection
+
+`atb.client` manages endpoint configuration and request construction. Credentials
+are selected for the configured provider and excluded from representations.
+Configuration loading does not mutate the process environment. The transport
+returns the unmodified SDK response and closes its client after each request.
+
+`atb.inspection` selects a task, constructs messages, sends one completion request
+and records the raw response. Its response inspector reports IDs, function names,
+JSON argument strings, parsed arguments, finish reasons and usage. The CLI can
+preview a request without network access or credentials.
+
+Inspection finishes at the model response. The requested function is not executed
+in this path. A valid JSON argument object is a transport check; domain validity
+and numerical correctness are responsibilities of execution and evaluation.
+
+## Inspection trace contract
+
+Each completion-inspection record has a schema version and four sections:
+
+| Section | Contents |
+| --- | --- |
+| `metadata` | Task identity, split, interface condition, endpoint, timestamp, latency, timeout, retries, runtime/SDK versions and benchmark SHA-256. |
+| `request` | Complete Chat Completions request body, including messages, schemas and generation settings. |
+| `response` | Unmodified JSON-compatible SDK dump, including provider-specific fields. |
+| `observations` | Inspection of tool requests and usage; explicitly records that tools were not executed. |
+
+The benchmark hash identifies the data snapshot used by the request. Reproducible
+inputs do not guarantee identical responses from a hosted model. Temperature zero
+and recorded settings support comparison but do not establish determinism.
+
+## Agent orchestration
+
+`atb.agent.run_agent(task, model, api_version, max_steps=8)` selects the A/B/C
+schemas, constructs shared system/user messages and executes bounded model turns.
+Every assistant message retains its function calls. One tool-result message per
+call carries the original `tool_call_id`. Multiple calls in a response are
+handled before requesting another completion.
+
+Invalid JSON, unknown tools and numerical execution failures become correlated
+error results that the model can correct. Malformed protocol IDs stop the run
+before any call in that batch is dispatched. Truncation, provider refusal, API
+errors and exhausted request budgets have distinct terminal statuses.
+
+Outbound assistant messages contain standard conversation fields. Raw provider
+responses, including extra fields, remain in the per-request records. Generation
+settings, schemas, messages, tool results, request/response pairs, token usage and
+latency are persisted. Writes are atomic and an existing run/task trace is never
+overwritten by a new run.
+
+The agent returns its trace independently of reference scoring. `atb.agent_cli`
+loads the task, runs the agent and invokes `score()` only if a final answer is
+available. A completed conversation can therefore still have an incorrect score.
+See [agent execution](agent-execution.md) for the detailed contract.
+
+## Evaluation and training boundaries
+
+All conditions receive the same system instructions and task prompt. Shared
+instructions state Earth constants and the final-answer JSON contract. Reference
+values, tolerances, expected calls and private parameters remain outside model
+requests. Condition A omits both tools and tool choice from the request.
+
+Traces record the task family, split and a task fingerprint. They are raw run
+artifacts, including failed and development runs. Training exports must separately
+select eligible, successful traces and enforce family-based separation from the
+evaluation set. Current development traces are not automatically training data.
+Comparative evaluation, training and inference experiments remain future work.

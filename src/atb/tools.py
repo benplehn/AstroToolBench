@@ -82,7 +82,7 @@ TOOLS_C = [
         "function": {
             "name": "orbital_period",
             "description": (
-                "Compute the orbital period of an elliptic or circular Earth orbit. "
+                "Compute the orbital period of a circular Earth orbit. "
                 "Takes altitude above Earth's surface (km). Returns orbital period in seconds."
             ),
             "parameters": {
@@ -105,7 +105,7 @@ TOOLS_C = [
             "description": (
                 "Compute coplanar circular-orbit Hohmann transfer impulses and duration. "
                 "Inputs are initial and final altitudes above Earth's surface in km. "
-                "Returns dv1 (km/s), dv2 (km/s), dv_total (km/s), and transfer duration (tof in seconds)."
+                "Returns delta_v1_km_s, delta_v2_km_s, delta_v_total_km_s, and transfer_time_s."
             ),
             "parameters": {
                 "type": "object",

@@ -1,7 +1,17 @@
 import json
+import math
 import re
 from typing import Any, Dict, Optional
 from atb.tasks import Task
+
+
+def _is_finite_number(value: Any) -> bool:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
 
 
 def extract_final_json(text: str) -> Optional[Dict[str, Any]]:
@@ -46,7 +56,7 @@ def score(task: Task, final_text: str) -> Dict[str, Any]:
         }
 
     is_trap = task.level == "trap" or task.reference.get("refuse") is True
-    agent_refused = bool(parsed.get("refuse", False))
+    agent_refused = parsed.get("refuse") is True
 
     # Cas 1 : La tâche est un piège
     if is_trap:
@@ -91,11 +101,11 @@ def score(task: Task, final_text: str) -> Dict[str, Any]:
             }
 
         pred_val = answer[key]
-        if not isinstance(pred_val, (int, float)):
+        if not _is_finite_number(pred_val):
             return {
                 "correct": False,
                 "error_type": "hors tolérance",
-                "message": f"Valeur non numérique pour la clé '{key}'.",
+                "message": f"Valeur numérique finie attendue pour la clé '{key}'.",
             }
 
         tol = task.tolerance.get(key, 1e-4)
