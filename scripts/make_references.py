@@ -1,3 +1,6 @@
+"""Generate development tasks and references from the numerical backend."""
+
+import argparse
 import json
 from pathlib import Path
 import numpy as np
@@ -11,7 +14,7 @@ SUN_X_NEG = [-1.0, 0.0, 0.0]
 CIRCULAR_SPEED_7000 = float(np.sqrt(MU_EARTH / 7000.0))
 
 TASKS_SPECS = [
-    # --- PÉRIODE ORBITALE (4 simples) ---
+    # Orbital periods
     {
         "id": "period-001",
         "family": "period",
@@ -53,7 +56,7 @@ TASKS_SPECS = [
         "tol": 5.0,
     },
 
-    # --- TRANSFERT DE HOHMANN (4 simples) ---
+    # Hohmann transfers
     {
         "id": "hoh-001",
         "family": "hohmann",
@@ -95,7 +98,7 @@ TASKS_SPECS = [
         "tol": 0.01,
     },
 
-    # --- PROPAGATION (4 simples) ---
+    # State propagation
     {
         "id": "prop-001",
         "family": "propagation",
@@ -137,7 +140,7 @@ TASKS_SPECS = [
         "tol": 2.0,
     },
 
-    # --- ÉCLIPSES (3 simples) ---
+    # Eclipse durations
     {
         "id": "ecl-001",
         "family": "eclipse",
@@ -169,7 +172,7 @@ TASKS_SPECS = [
         "tol": 30.0,
     },
 
-    # --- MULTI-ÉTAPES (4 tâches) ---
+    # Multiple tool calls
     {
         "id": "multi-001",
         "family": "multi_step",
@@ -218,7 +221,7 @@ TASKS_SPECS = [
         "tol": 20.0,
     },
 
-    # --- PIÈGES (5 tâches) ---
+    # Requests requiring refusal
     {
         "id": "trap-001",
         "family": "trap_negative_altitude",
@@ -278,14 +281,13 @@ def generate_references(output_file: Path) -> None:
     for spec in TASKS_SPECS:
         tid = spec["id"]
         p = spec["params"]
-        ref: Dict[str, Any] = {}
-        tol: Dict[str, float] = {}
+        ref: dict[str, float | bool] = {}
+        tol: dict[str, float] = {}
 
         if spec.get("refuse"):
             ref = {"refuse": True}
         else:
             tgt = spec["target"]
-            # Exécution directe des oracles NumPy
             if tid == "period-001":
                 val = orbital_period(R_EARTH + p["altitude_km"])
                 ref = {tgt: round(float(val), 2)}
@@ -363,8 +365,10 @@ def generate_references(output_file: Path) -> None:
         for r in records:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
-    print(f"{len(records)} tâches générées avec succès dans {output_file}")
+    print(f"Wrote {len(records)} tasks to {output_file}")
 
 
 if __name__ == "__main__":
-    generate_references(Path("benchmark/tasks.jsonl"))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, default=Path(__file__).resolve().parents[1] / "benchmark/tasks.jsonl")
+    generate_references(parser.parse_args().output)

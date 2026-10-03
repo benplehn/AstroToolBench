@@ -1,4 +1,4 @@
-"""Tool schemas for OpenAI function calling (TOOLS_B: raw, TOOLS_C: agent-optimized)."""
+"""Function schemas: B uses minimal descriptions; C specifies units and conventions."""
 
 TOOLS_B = [
     {

@@ -108,3 +108,23 @@ def test_nonfinite_numbers_and_booleans_are_not_numeric_successes(value):
 def test_string_refusal_is_not_a_valid_refusal():
     task = Task(id="refusal", family="trap", level="trap", prompt="Invalid orbit.", reference={"refuse": True})
     assert score(task, '{"refuse":"false","reason":"invalid"}')["correct"] is False
+
+
+def test_final_answer_after_fenced_tool_arguments(sample_numeric_task):
+    output = '```json\n{"r0_km": [7000, 0, 0], "dt_s": 3560.540788789012}\n```\n'
+    output += '{"answer": {"delta_v_total_km_s": 3.771}}'
+    assert score(sample_numeric_task, output)["correct"] is True
+
+
+def test_last_answer_wins_across_markdown_and_plain_json():
+    output = '```json\n{"answer": {"value": 1}}\n```\n{"answer": {"value": 2}}'
+    assert extract_final_json(output) == {"answer": {"value": 2}}
+
+
+def test_nested_objects_and_braces_in_strings():
+    output = '{"answer": {"nested": {"value": 1}}, "note": "a } brace"}'
+    assert extract_final_json(output) == {"answer": {"nested": {"value": 1}}, "note": "a } brace"}
+
+
+def test_tool_arguments_are_not_final_answers():
+    assert extract_final_json('```json\n{"dt_s": 3560.54}\n```') is None

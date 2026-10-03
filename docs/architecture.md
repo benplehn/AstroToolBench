@@ -20,16 +20,21 @@ src/
     agent.py           Bounded model/tool orchestration and conversation traces
     agent_cli.py       Single-task execution and scoring command
     inspection.py      Completion inspection, trace persistence and CLI
+    template_inspection.py  Local chat rendering and token-cost comparison
 benchmark/
   tasks.jsonl          Prompts, families, splits, references and tolerances
 scripts/
   inspect_completion.py  Repository-local wrapper around the inspection CLI
+  inspect_template.py    Chat-template inspection and B/C token counts
   run_agent.py           Repository-local wrapper around the agent CLI
   list_models.py        Provider model discovery
   make_references.py    Task and reference generation
+  smoke_test.py         Five-task integration check with a saved outcome summary
 results/
   completions/         Raw request/response traces, excluded from Git
   traces/<run_id>/      Agent conversations, excluded from Git
+  templates/           Rendered text and token reports, excluded from Git
+  smoke/               Integration summaries, including failures, excluded from Git
 ```
 
 Documentation, unit tests and the CI configuration live in `docs/`, `tests/` and
@@ -122,6 +127,11 @@ The agent returns its trace independently of reference scoring. `atb.agent_cli`
 loads the task, runs the agent and invokes `score()` only if a final answer is
 available. A completed conversation can therefore still have an incorrect score.
 See [agent execution](agent-execution.md) for the detailed contract.
+
+`atb.template_inspection` adapts recorded argument strings to dictionaries in a
+copy of the messages, renders a local tokenizer's chat template and counts tokens.
+It uses recorded schemas for trace inspection and compares current B/C schemas
+on the same initial messages. It never calls a model API or executes a tool.
 
 ## Evaluation and training boundaries
 

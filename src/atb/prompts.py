@@ -8,10 +8,12 @@ SYSTEM_PROMPT = (
     "claiming that a tool was executed. Do not invent tool results. "
     "For Earth calculations use an equatorial radius of 6378.137 km and a "
     "gravitational parameter of 398600.4418 km^3/s^2. "
-    "If the problem is physically invalid or missing essential information, "
-    "explain why. When a final answer is possible, return "
-    '{"answer": {...}} with explicit units in the keys, or '
-    '{"refuse": true, "reason": "..."} for an invalid request.'
+    "Your final response must be exactly one JSON object, without prose or "
+    "Markdown fences. For a valid task, return "
+    '{"answer": {...}} with numeric values and explicit units in the keys. '
+    "For a physically invalid task or missing essential information, return "
+    '{"refuse": true, "reason": "..."}, explaining the problem in reason. '
+    "Preserve the precision of intermediate tool results when chaining calls."
 )
 
 

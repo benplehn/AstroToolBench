@@ -1,7 +1,8 @@
+"""Parse final answers and compare them with benchmark references."""
+
 import json
 import math
-import re
-from typing import Any, Dict, Optional
+from typing import Any
 from atb.tasks import Task
 
 
@@ -14,39 +15,25 @@ def _is_finite_number(value: Any) -> bool:
         return False
 
 
-def extract_final_json(text: str) -> Optional[Dict[str, Any]]:
-    """
-    Extrait le dernier bloc JSON valide du texte généré par le modèle.
-    Supporte les blocs markdown ```json ... ``` et les JSON bruts {...}.
-    """
-    # 1. Recherche dans les balises de code Markdown
-    fences = re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", text, flags=re.DOTALL)
-    if fences:
+def extract_final_json(text: str) -> dict[str, Any] | None:
+    """Find a final-answer JSON object in plain text or a Markdown code block."""
+    decoder = json.JSONDecoder()
+    final = None
+    offset = 0
+    while (start := text.find("{", offset)) != -1:
         try:
-            return json.loads(fences[-1])
-        except Exception:
-            pass
-
-    # 2. Recherche du dernier objet JSON dans le texte brut
-    candidates = re.findall(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", text, flags=re.DOTALL)
-    for raw in reversed(candidates):
-        try:
-            parsed = json.loads(raw)
+            parsed, end = decoder.raw_decode(text, start)
             if isinstance(parsed, dict) and ("answer" in parsed or "refuse" in parsed):
-                return parsed
-        except Exception:
-            continue
+                final = parsed
+            # Skip nested objects and braces inside strings in a parsed object.
+            offset = end
+        except json.JSONDecodeError:
+            offset = start + 1
+    return final
 
-    return None
 
-
-def score(task: Task, final_text: str) -> Dict[str, Any]:
-    """
-    Évalue la conformité de la réponse finale du modèle.
-
-    Renvoie un dictionnaire :
-      {"correct": bool, "error_type": Optional[str], "details": ...}
-    """
+def score(task: Task, final_text: str) -> dict[str, Any]:
+    """Return correctness, an error category and a message for a final answer."""
     parsed = extract_final_json(final_text)
     if not parsed or not isinstance(parsed, dict):
         return {
@@ -58,7 +45,6 @@ def score(task: Task, final_text: str) -> Dict[str, Any]:
     is_trap = task.level == "trap" or task.reference.get("refuse") is True
     agent_refused = parsed.get("refuse") is True
 
-    # Cas 1 : La tâche est un piège
     if is_trap:
         if agent_refused:
             return {
@@ -72,7 +58,6 @@ def score(task: Task, final_text: str) -> Dict[str, Any]:
             "message": "La tâche demandait un refus (piège/incohérence), mais le modèle a tenté de calculer.",
         }
 
-    # Cas 2 : Refus sur une tâche légitime
     if agent_refused:
         return {
             "correct": False,
@@ -80,7 +65,6 @@ def score(task: Task, final_text: str) -> Dict[str, Any]:
             "message": f"Le modèle a refusé une tâche valide : {parsed.get('reason', 'sans motif')}",
         }
 
-    # Cas 3 : Vérification de la réponse numérique
     answer = parsed.get("answer")
     if not isinstance(answer, dict):
         return {

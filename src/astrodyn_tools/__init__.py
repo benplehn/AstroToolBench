@@ -1,6 +1,6 @@
-"""Core flight-dynamics functions for AstroToolBench (working name).
+"""Numerical flight dynamics for AstroToolBench.
 
-Conventions (used everywhere, no exceptions):
+Units and coordinate frame:
     distance  -> km
     velocity  -> km/s
     time      -> s

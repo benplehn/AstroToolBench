@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "inspection_type": "chat_template",
+  "tokenizer": "Qwen/Qwen2.5-0.5B-Instruct",
+  "revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+  "transformers_version": "4.57.6",
+  "tokenizers_version": "0.22.2",
+  "chat_template_sha256": "cd8e9439f0570856fd70470bf8889ebd8b5d1107207f67a5efb46e342330527f",
+  "source": {
+    "trace": "docs/examples/nvidia-nemotron-agent.json",
+    "trace_sha256": "403c2dd892803afd82c7b8ab4fabe5ca67b6e154c0df7ca6960dabf571a0c6b2"
+  },
+  "condition": "C",
+  "add_generation_prompt": false,
+  "message_count": 7,
+  "tool_call_count": 2,
+  "rendered_tokens": 1624,
+  "rendered_sha256": "261515ff44552d8d7b41f46982bd548a52b764275a45781dd9d3dea8f0cd88da",
+  "comparison": {
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are a spacecraft flight-dynamics assistant. Use the provided numerical tools when available. When no tools are provided, solve directly without claiming that a tool was executed. Do not invent tool results. For Earth calculations use an equatorial radius of 6378.137 km and a gravitational parameter of 398600.4418 km^3/s^2. If the problem is physically invalid or missing essential information, explain why. When a final answer is possible, return {\"answer\": {...}} with explicit units in the keys, or {\"refuse\": true, \"reason\": \"...\"} for an invalid request."
+      },
+      {
+        "role": "user",
+        "content": "Autour de la Terre, calculer le temps de vol d'un transfert de Hohmann entre deux orbites circulaires de rayons 7000 km et 9000 km. Utiliser ensuite cette durée pour propager l'état de l'orbite de départ en ECI : r0=[7000, 0, 0] km, v0=[0, 7.546053290107541, 0] km/s. Propager cet état initial sans appliquer les impulsions du transfert. Donner la coordonnée x finale dans answer.r_final_x_km."
+      }
+    ],
+    "baseline_prompt_tokens": 290,
+    "conditions": {
+      "B": {
+        "schema_json_tokens": 350,
+        "prompt_tokens": 845,
+        "tool_overhead_tokens": 555,
+        "prompt_tokens_without_descriptions": 720,
+        "description_fields_cost_tokens": 125,
+        "schema_sha256": "6bedaee9edbe4186ffd16af4a42b07500b6c18db567b09d546eef125b8b9a7a8"
+      },
+      "C": {
+        "schema_json_tokens": 705,
+        "prompt_tokens": 1220,
+        "tool_overhead_tokens": 930,
+        "prompt_tokens_without_descriptions": 813,
+        "description_fields_cost_tokens": 407,
+        "schema_sha256": "6d2bc510b429f784e1e93539194c92f2eaf379725113eb4447e2301465a4991c"
+      }
+    },
+    "C_minus_B_schema_json_tokens": 355,
+    "C_minus_B_prompt_tokens": 375,
+    "method": {
+      "schema_json": "Compact UTF-8 JSON list, ensure_ascii=False; no extra special tokens.",
+      "prompt": "Same initial messages and generation prefix, varying only tool definitions.",
+      "tool_overhead": "Prompt with tools minus prompt without tools; includes template tool instructions.",
+      "descriptions": "Prompt with full schemas minus prompt with all description fields removed; includes description keys and punctuation."
+    }
+  }
+}

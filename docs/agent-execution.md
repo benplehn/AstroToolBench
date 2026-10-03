@@ -10,17 +10,33 @@ Install `.[dev,llm]` and configure the provider as described in
 [completion inspection](completion-inspection.md). From the repository root:
 
 ```bash
-atb-run --task multi-001 --api C
+atb-run --task multi-001 --api C --reasoning-budget 256 --timeout 120
 ```
 
-The command prints the run status, final answer, numerical score, tokens, latency
-and trace path. Exit code 0 requires a completed conversation and a passing score.
+The default report prints the conversation in order: assistant responses, tool
+names, arguments and results, followed by status, tokens, latency, trace path and
+the numerical grade (`PASS` or `FAIL`). An incomplete run is explicitly marked
+`NOT EVALUATED`. Exit code 0 requires a completed conversation and a passing score.
 An incorrect final answer or any other terminal status produces exit code 1.
+
+Use `--verbose` to include the initial system/user messages, call IDs that match
+each tool result to its request, per-request latency, token usage and finish
+reasons, and tool error categories. These reports are printed after execution;
+the trace file is saved after every turn by the runner.
+
+```bash
+atb-run --task multi-001 --model nvidia/nemotron-3.5-lightning-30b-a3b --api C --verbose
+atb-run --task multi-001 --api C --json
+```
+
+`--json` retains the machine-readable summary for scripts. It is mutually
+exclusive with `--verbose`; the complete trace remains in the recorded JSON file
+regardless of the output mode. Missing provider token usage is shown as unknown.
 
 For the repository-local wrapper:
 
 ```bash
-python scripts/run_agent.py --task multi-001 --api C --max-steps 8
+python scripts/run_agent.py --task multi-001 --api C --max-steps 8 --verbose
 ```
 
 The Python API returns a JSON-serializable trace:
@@ -38,6 +54,16 @@ print(trace["status"], trace["final_answer"], trace["trace_path"])
 
 `run_agent()` itself does not grade answers. Reference scoring belongs to the
 caller; the CLI uses `atb.scoring.score` after a completed run.
+
+For NVIDIA models that support it, `--reasoning-budget` limits reasoning tokens
+per request. The value is recorded in metadata and every request body. The
+default omits the field, leaving the provider's setting in effect; `-1` disables
+budget enforcement. This is separate from `--max-tokens`, which limits output,
+and `--timeout`, which limits how long the client waits.
+
+The [Lightning API reference](https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3-5-lightning-30b-a3b-infer)
+documents this provider extension. Other compatible endpoints may not support it.
+Keep the same budget when comparing interface conditions.
 
 ## Message protocol
 
@@ -80,10 +106,10 @@ answer. Two dependent tool requests normally need three model turns. The runner
 executes calls returned on the last allowed turn, preserves their results, and
 then stops without fabricating a final answer.
 
-CLI controls include `--model`, `--api`, `--max-steps`, `--max-tokens`, `--timeout`,
-`--env-file`, `--results-dir` and `--run-id`. A caller can share a run ID across
-different task IDs. Existing task traces under that run ID are rejected before a
-new request is sent.
+CLI controls include `--model`, `--api`, `--max-steps`, `--max-tokens`, `--reasoning-budget`, `--timeout`,
+`--env-file`, `--results-dir`, `--run-id`, `--verbose` and `--json`. A caller can
+share a run ID across different task IDs. Existing task traces under that run ID
+are rejected before a new request is sent.
 
 ## Errors and terminal statuses
 

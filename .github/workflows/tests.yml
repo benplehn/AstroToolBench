@@ -18,7 +18,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: python -m pip install -e ".[dev,llm]"
+      - run: python -m pip install -e ".[dev,llm,tokenizer]"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub
+          key: qwen-tokenizer-7ae557604adf67be50417f59c2c2f167def9a775
+      - name: Cache pinned tokenizer assets
+        run: >-
+          python -c "from atb.template_inspection import load_tokenizer;
+          load_tokenizer(revision='7ae557604adf67be50417f59c2c2f167def9a775')"
       - run: python -m pytest -q
       - run: atb-inspect --dry-run --env-file .env.example
       - run: atb-run --help
+      - run: >-
+          python scripts/inspect_template.py --task period-001 --local-files-only
+          --revision 7ae557604adf67be50417f59c2c2f167def9a775

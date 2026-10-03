@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "astrodyn-tools"          # working name, to be renamed before publishing
+name = "astrodyn-tools"
 version = "0.1.0"
 description = "Flight-dynamics tools and benchmark for evaluating scientific tool use by LLM agents"
 requires-python = ">=3.10"
@@ -12,6 +12,7 @@ dependencies = ["numpy>=1.24", "pydantic>=2,<3"]
 [project.optional-dependencies]
 dev = ["pytest>=7"]
 llm = ["openai>=1.30,<4", "python-dotenv>=1,<2"]
+tokenizer = ["transformers>=4.45,<5", "jinja2>=3.1,<4"]
 
 [project.scripts]
 atb-inspect = "atb.inspection:main"

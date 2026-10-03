@@ -1,6 +1,8 @@
+"""Benchmark task records and JSONL loading."""
+
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 from pydantic import BaseModel, Field
 
 
@@ -8,26 +10,26 @@ class Task(BaseModel):
     id: str
     family: str
     level: str  # "simple", "multi_step", "trap"
-    split: Optional[str] = "dev"
+    split: str | None = "dev"
     prompt: str
-    expected_tools: List[str] = Field(default_factory=list)
-    params: Dict[str, Any] = Field(default_factory=dict)
-    reference: Dict[str, Any] = Field(default_factory=dict)
-    tolerance: Dict[str, float] = Field(default_factory=dict)
-    notes: Optional[str] = None
+    expected_tools: list[str] = Field(default_factory=list)
+    params: dict[str, Any] = Field(default_factory=dict)
+    reference: dict[str, Any] = Field(default_factory=dict)
+    tolerance: dict[str, float] = Field(default_factory=dict)
+    notes: str | None = None
 
 
 def load_tasks(
     path: str | Path,
-    split: Optional[str] = None,
-    family: Optional[str] = None,
-) -> List[Task]:
-    """Charge les tâches JSONL avec filtrage optionnel par split et famille."""
+    split: str | None = None,
+    family: str | None = None,
+) -> list[Task]:
+    """Load tasks, reject duplicate IDs and optionally filter by split or family."""
     file_path = Path(path)
     if not file_path.exists():
         raise FileNotFoundError(f"Fichier de tâches introuvable : {file_path}")
 
-    tasks: List[Task] = []
+    tasks: list[Task] = []
     seen_ids = set()
 
     with open(file_path, "r", encoding="utf-8") as f:

@@ -79,6 +79,22 @@ def test_dependent_calls_replay_protocol_and_real_oracles(monkeypatch, task, set
     assert "test-secret" not in json.dumps(trace)
 
 
+def test_reasoning_budget_is_repeated_and_persisted_for_every_turn(monkeypatch, task, settings, tmp_path):
+    requests = []
+    def fake_chat(**kwargs):
+        requests.append(kwargs)
+        if len(requests) == 1:
+            return completion([call("orbital_period", '{"altitude_km":400}')])
+        return completion(content='{"answer":{"period_s":5553.624}}')
+    monkeypatch.setattr(agent, "chat", fake_chat)
+    trace = run(task, settings, tmp_path, reasoning_budget=256)
+    assert trace["status"] == "completed"
+    assert trace["metadata"]["reasoning_budget"] == 256
+    assert all(request["reasoning_budget"] == 256 for request in requests)
+    assert all(step["request"]["reasoning_budget"] == 256 for step in trace["steps"])
+    assert json.loads(Path(trace["trace_path"]).read_text()) == trace
+
+
 def test_multiple_calls_include_error_results_and_allow_recovery(monkeypatch, task, settings, tmp_path):
     attempts = []
     def fake_chat(**kwargs):

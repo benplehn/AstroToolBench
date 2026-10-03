@@ -16,7 +16,7 @@ from openai import APIConnectionError, APIError, APIStatusError, APITimeoutError
 from openai.types.chat import ChatCompletion
 
 DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1"
-DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b"
+DEFAULT_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
 ToolChoice = Literal["auto", "required", "none"]
 
 
@@ -93,6 +93,7 @@ def build_chat_request(
     temperature: float = 0.0,
     max_tokens: int = 4096,
     tool_choice: ToolChoice = "auto",
+    reasoning_budget: int | None = None,
 ) -> dict[str, Any]:
     """Build the exact request body used for inspection and transmission."""
     if not model.strip() or not messages:
@@ -105,6 +106,12 @@ def build_chat_request(
         raise ValueError("tool_choice must be auto, required or none.")
     if not tools and tool_choice == "required":
         raise ValueError("tool_choice='required' needs at least one tool.")
+    if reasoning_budget is not None and (
+        isinstance(reasoning_budget, bool)
+        or not isinstance(reasoning_budget, int)
+        or not -1 <= reasoning_budget <= 32768
+    ):
+        raise ValueError("reasoning_budget must be an integer from -1 to 32768.")
     request: dict[str, Any] = {
         "model": model,
         "messages": messages,
@@ -114,6 +121,8 @@ def build_chat_request(
     }
     if tools:
         request.update(tools=tools, tool_choice=tool_choice)
+    if reasoning_budget is not None:
+        request["reasoning_budget"] = reasoning_budget
     return request
 
 
@@ -139,6 +148,7 @@ def chat(
     settings: ClientSettings | None = None,
     max_tokens: int = 4096,
     tool_choice: ToolChoice = "auto",
+    reasoning_budget: int | None = None,
 ) -> ChatCompletion:
     """Send one completion request and return the unmodified SDK response.
 
@@ -149,9 +159,14 @@ def chat(
     request = build_chat_request(
         model or settings.model, messages, tools,
         temperature=temperature, max_tokens=max_tokens, tool_choice=tool_choice,
+        reasoning_budget=reasoning_budget,
     )
     client, _ = get_client(settings)
     with client:
+        if reasoning_budget is not None:
+            # NVIDIA accepts this extension in the JSON body; the SDK uses extra_body.
+            extra_body = {"reasoning_budget": request.pop("reasoning_budget")}
+            return client.chat.completions.create(**request, extra_body=extra_body)
         return client.chat.completions.create(**request)
 
 
@@ -167,6 +182,7 @@ def api_error_message(error: APIError) -> str:
             401: "Check the API key for the configured endpoint.",
             403: "Check account access to this model.",
             404: "Check LLM_BASE_URL and the exact model ID; use scripts/list_models.py.",
+            410: "This model is no longer available. Choose another model with --model; use scripts/list_models.py.",
             429: "Rate limit or quota reached. Try again later or check the account quota.",
         }
         return f"Provider returned HTTP {error.status_code}. " + hints.get(

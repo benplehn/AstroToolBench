@@ -10,6 +10,7 @@ pytest.importorskip("openai", reason="Install the llm extra to test the API clie
 pytest.importorskip("dotenv", reason="Install the llm extra to test configuration")
 
 import atb.client as client_module
+from openai import APIStatusError
 from atb.client import ClientSettings, build_chat_request, chat
 
 
@@ -87,7 +88,32 @@ def test_without_tools_omits_both_tool_fields():
         build_chat_request("model", request["messages"], tool_choice="required")
 
 
-@pytest.mark.parametrize("kwargs", [{"max_tokens": 0}, {"max_tokens": True}, {"temperature": float("nan")}, {"tool_choice": "invalid"}])
+@pytest.mark.parametrize("kwargs", [{"max_tokens": 0}, {"max_tokens": True}, {"temperature": float("nan")}, {"tool_choice": "invalid"},
+                                   {"reasoning_budget": True}, {"reasoning_budget": -2}, {"reasoning_budget": 32769}])
 def test_invalid_request_rejected_before_network(kwargs):
     with pytest.raises(ValueError):
         build_chat_request("model", [{"role": "user", "content": "hello"}], **kwargs)
+
+
+def test_retired_model_error_suggests_explicit_replacement_without_exposing_body():
+    response = SimpleNamespace(status_code=410, request=None, headers={})
+    error = APIStatusError("provider-private-detail", response=response, body={"detail": "secret-account-data"})
+    message = client_module.api_error_message(error)
+    assert "410" in message
+    assert "--model" in message
+    assert "no longer available" in message
+    assert "secret-account-data" not in message
+    assert "provider-private-detail" not in message
+
+
+def test_reasoning_budget_is_recorded_as_wire_field_and_sent_through_sdk_extension(monkeypatch):
+    messages = [{"role": "user", "content": "Compute a period."}]
+    fake = MagicMock()
+    monkeypatch.setattr(client_module, "OpenAI", MagicMock(return_value=fake))
+    settings = ClientSettings("https://example.org/v1", "test-model", "test-key")
+    wire = build_chat_request(settings.model, messages, reasoning_budget=256)
+    assert wire["reasoning_budget"] == 256
+    chat(messages, settings=settings, reasoning_budget=256)
+    sdk_request = {key: value for key, value in wire.items() if key != "reasoning_budget"}
+    fake.chat.completions.create.assert_called_once_with(**sdk_request, extra_body={"reasoning_budget": 256})
+    fake.__exit__.assert_called_once()

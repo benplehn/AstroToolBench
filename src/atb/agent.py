@@ -115,6 +115,7 @@ def run_agent(
     run_id: str | None = None,
     temperature: float = 0.0,
     max_tokens: int = 4096,
+    reasoning_budget: int | None = None,
 ) -> dict[str, Any]:
     """Run A (no tools), B or C; save and return the complete run trace.
 
@@ -139,7 +140,10 @@ def run_agent(
     messages: list[dict[str, Any]] = build_messages(task)
     tools = deepcopy({"A": None, "B": TOOLS_B, "C": TOOLS_C}[api])
     # Validate generation settings before reserving an output or making a request.
-    build_chat_request(model, messages, tools, temperature=temperature, max_tokens=max_tokens)
+    build_chat_request(
+        model, messages, tools, temperature=temperature, max_tokens=max_tokens,
+        reasoning_budget=reasoning_budget,
+    )
     path = Path(results_dir) / run_id / f"{task.id}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     trace: dict[str, Any] = {
@@ -157,6 +161,7 @@ def run_agent(
             "max_steps": max_steps,
             "temperature": temperature,
             "max_tokens": max_tokens,
+            "reasoning_budget": reasoning_budget,
             "timeout_s": settings.timeout_s,
             "max_retries": settings.max_retries,
             "python_version": platform.python_version(),
@@ -182,7 +187,10 @@ def run_agent(
         handle.write("\n")
     start = perf_counter()
     for index in range(1, max_steps + 1):
-        request = build_chat_request(model, deepcopy(messages), tools, temperature=temperature, max_tokens=max_tokens)
+        request = build_chat_request(
+            model, deepcopy(messages), tools, temperature=temperature,
+            max_tokens=max_tokens, reasoning_budget=reasoning_budget,
+        )
         step: dict[str, Any] = {"index": index, "request": request, "response": None, "usage": None}
         trace["steps"].append(step)
         step_start = perf_counter()
@@ -190,6 +198,7 @@ def run_agent(
             response = chat(
                 messages=deepcopy(messages), tools=tools, model=model,
                 settings=settings, temperature=temperature, max_tokens=max_tokens,
+                reasoning_budget=reasoning_budget,
             )
             raw = response.model_dump(mode="json")
             step["response"] = raw

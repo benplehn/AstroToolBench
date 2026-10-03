@@ -1,7 +1,7 @@
 """Eclipse prediction with a cylindrical Earth-shadow model.
 
-Simplifying assumptions (documented on purpose, the benchmark relies on them):
-    - the Sun direction is fixed during the analysis window (fine for a few orbits),
+Model assumptions:
+    - the Sun direction is fixed during the analysis window,
     - the shadow is a cylinder of radius R_EARTH (no penumbra),
     - two-body propagation.
 """

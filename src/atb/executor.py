@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict
+from typing import Any
 import numpy as np
 
 from astrodyn_tools.constants import MU_EARTH, R_EARTH
@@ -23,17 +23,13 @@ def _json_serializable(obj: Any) -> Any:
 
 
 def execute_tool(api_version: str, name: str, arguments_json: str) -> str:
-    """
-    Exécute un outil en version 'B' ou 'C'.
-    Retourne une chaîne JSON valide contenant le résultat ou l'erreur.
-    """
+    """Dispatch a B/C function request and return its result or error as JSON."""
     api = api_version.upper()
     if api not in ("B", "C"):
         raise ValueError(f"Version d'API inconnue: {api_version}. Utiliser 'B' ou 'C'.")
 
-    # 1. Parsing JSON des arguments
     try:
-        args: Dict[str, Any] = json.loads(arguments_json)
+        args: dict[str, Any] = json.loads(arguments_json)
     except Exception as e:
         if api == "B":
             return json.dumps({"error": f"JSONDecodeError: {str(e)}"})
@@ -133,9 +129,7 @@ def execute_tool(api_version: str, name: str, arguments_json: str) -> str:
 
     except Exception as e:
         if api == "B":
-            # Exception brute en B
             return json.dumps({"error": f"{type(e).__name__}: {str(e)}"})
-        # Message contextualisé en C
         return json.dumps({
             "error": f"Execution failed for tool '{name}' with error: {type(e).__name__}: {str(e)}."
         })
