@@ -32,7 +32,7 @@ existing files are rejected before contacting the provider. See the
 
 Copy `.env.example` to `.env` and set the credential locally. The default endpoint
 is `https://integrate.api.nvidia.com/v1` and the default model is
-`nvidia/nemotron-3-super-120b-a12b`.
+`nvidia/nemotron-3.5-lightning-30b-a3b`.
 
 | Endpoint host | Credential fallback |
 | --- | --- |
@@ -53,6 +53,10 @@ python scripts/list_models.py --filter nemotron
 ```
 
 Being listed does not establish support for function calling.
+The first integration records used Nemotron 3 Super. Its hosted endpoint returned
+HTTP 410 on 3 October 2026, so the default now uses Nemotron 3.5 Lightning. Saved
+Super traces keep their original model identity. See the
+[release validation](release-validation.md) for the current five-task check.
 
 ## Reading a response
 
@@ -101,6 +105,9 @@ closed after the request. API failures return exit code 1 with concise diagnosti
 messages and no provider error body. No response trace is written for a failed API
 request. Responses that fail `--require-tool-call` are preserved before exiting
 with code 1.
+
+HTTP 410 reports that the model is unavailable and suggests an explicit
+`--model` override. The runner never silently switches models within an experiment.
 
 ## Verification
 

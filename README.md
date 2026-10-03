@@ -1,12 +1,24 @@
 # AstroToolBench
 
-A benchmark for reliable use of scientific tools by language models, with
-spacecraft flight dynamics as the experimental domain.
+A benchmark for language models that use orbital mechanics tools.
 
-The project investigates how tool interface design, post-training and inference
-configuration affect numerical correctness and tool-use reliability. It currently
-provides numerical tools, benchmark tasks, a scorer, a bounded agent runner and
-raw completion inspection. Comparative model evaluation is under development.
+AstroToolBench compares a minimal tool interface (B), an interface with explicit
+units and input conventions (C), and a baseline without tools (A). NumPy routines
+handle the calculations; an agent connects them to a model through a chat API.
+Post-training and inference experiments are planned after the interface baseline.
+
+## Status
+
+The numerical tools, A/B/C agent runner, single-task CLI and tokenizer inspection
+are implemented. The local suite passes **116 tests**. A five-task condition C
+smoke test on Nemotron 3.5 Lightning passed **4/5 numerical checks** on 3 October
+2026, including two dependent tool calls. Three responses were standalone final
+JSON objects; Hohmann lacked a final answer and the eclipse response had trailing
+text. These outcomes are retained in the [validation report](docs/release-validation.md)
+and [recorded traces](docs/examples/nvidia-lightning-smoke.json).
+
+This is an integration baseline on development tasks. Comparative A/B/C results
+and post-training remain planned.
 
 ## Architecture
 
@@ -22,7 +34,9 @@ Two Python packages separate scientific computation from model interaction:
 | `atb.client` | Configure the provider, build requests and send Chat Completions. |
 | `atb.prompts` | Shared instructions and prompt construction for A/B/C runs. |
 | `atb.agent` | Run the model/tool loop, handle failures and persist conversation traces. |
+| `atb.agent_cli` | Run and score one task; display the conversation or a JSON summary. |
 | `atb.inspection` | Inspect raw completions and persist request/response traces. |
+| `atb.template_inspection` | Render recorded conversations locally and compare tool token costs. |
 
 The agent connects the model to numerical tools and keeps scoring separate:
 
@@ -78,34 +92,65 @@ The command prints the complete request body, raw model response and tool-call
 observations. It saves traces under `results/completions/`. Credentials and
 headers are excluded; `.env` and local results are ignored by Git.
 
-The default configuration targets NVIDIA's API Catalog with Nemotron 3 Super.
-An observed request returned `orbital_period` with `{"altitude_km":400}` and
+The default configuration targets NVIDIA's API Catalog with Nemotron 3.5 Lightning.
+An earlier Nemotron 3 Super request returned `orbital_period` with `{"altitude_km":400}` and
 `finish_reason: "tool_calls"`. The [recorded response](docs/examples/nvidia-nemotron-orbital-period.json)
 provides evidence for this integration check. Numerical answer accuracy is
 measured separately once tools are executed and a final answer is available.
 
 See [completion inspection](docs/completion-inspection.md) for provider
 configuration, request controls and response fields. CI runs offline tests and
-an offline request preview on Python 3.10 and 3.12.
+an offline request preview on Python 3.10 and 3.12. Tokenizer files are downloaded
+once at a pinned revision; CI makes no model API calls.
 
 ## Run an agent task
 
 With the same provider configuration:
 
 ```bash
-atb-run --task multi-001 --api C
+atb-run --task multi-001 --api C --reasoning-budget 256 --timeout 120
+atb-run --task multi-001 --api C --reasoning-budget 256 --timeout 120 --verbose
 atb-run --task period-001 --api A --max-steps 8
 ```
 
 `multi-001` obtains a Hohmann transfer duration and uses it to propagate an
 explicit initial ECI state. The command reports the final answer, numerical
-score, tool calls, tokens and latency. Every run writes a trace to
+score, tool calls, tokens and latency. `--verbose` adds the initial instructions,
+call IDs and per-turn metrics; `--json` prints a summary for scripts. Every run
+writes a trace to
 `results/traces/<run_id>/<task_id>.json`, including failures and exhausted budgets.
 
 See [agent execution](docs/agent-execution.md) for the Python API, message protocol
 and trace contract. A [recorded Nemotron run](docs/examples/nvidia-nemotron-agent.json)
 completed two dependent tool calls in successive responses and passed the
 numerical check. Offline tests also cover multiple calls in one response.
+
+`--reasoning-budget` is an explicit NVIDIA inference setting, recorded in the
+trace and sent at every turn. Omitting it leaves the provider's default in effect.
+
+Run the same five-task integration check with:
+
+```bash
+python scripts/smoke_test.py --api C --reasoning-budget 256 --timeout 120
+```
+
+The script retains failed outcomes, prints each result and exits with code 1 if
+any task fails. See the validation report for the exact configuration and limits.
+
+## Inspect a chat tokenizer
+
+Benchmark prompts and recorded agent conversations can be rendered with an
+open model's chat template without loading model weights or PyTorch. The command
+also compares B/C token costs and isolates description fields. See
+[chat tokenizer inspection](docs/template-inspection.md) for the optional
+dependency, download and cache controls.
+
+```bash
+python -m pip install ".[tokenizer]"
+python scripts/inspect_template.py --task period-001
+python scripts/inspect_template.py --trace docs/examples/nvidia-nemotron-agent.json \
+  --compare-tools --local-files-only
+```
 
 ## Experimental design
 

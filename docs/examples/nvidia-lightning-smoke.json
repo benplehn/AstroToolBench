@@ -1,0 +1,137 @@
+{
+  "run_id": "20261003T125148Z-smoke-aefe03",
+  "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+  "api_version": "C",
+  "temperature": 0.0,
+  "max_steps": 8,
+  "max_tokens": 4096,
+  "reasoning_budget": 256,
+  "timeout_s": 120.0,
+  "started_at_utc": "2026-10-03T12:51:48.274772+00:00",
+  "tasks": [
+    {
+      "task_id": "period-001",
+      "status": "completed",
+      "score": {
+        "correct": true,
+        "error_type": null,
+        "message": "Réponse conforme à la vérité terrain."
+      },
+      "step_count": 2,
+      "tool_call_count": 1,
+      "tokens": {
+        "prompt_tokens": 2900,
+        "completion_tokens": 543,
+        "total_tokens": 3443,
+        "usage_complete": true
+      },
+      "latency_s": 9.89367616600066,
+      "final_answer": "{\"answer\": {\"period_s\": 5553.624271252228}}",
+      "error": null,
+      "trace_path": "docs/examples/smoke/period-001.json",
+      "task_sha256": "b2ceed93bb99fb9b0a44b1d92de714565ebfed44d911c4cbb1afeecb524b35f4",
+      "trace_sha256": "8f5873a4352a0ad630d71a3c5722b9c826f9e81947129537a2bc960eb06192d2",
+      "final_json_valid": true
+    },
+    {
+      "task_id": "hoh-001",
+      "status": "completed",
+      "score": {
+        "correct": false,
+        "error_type": "réponse illisible",
+        "message": "Aucun bloc JSON exploitable avec 'answer' ou 'refuse' n'a été trouvé."
+      },
+      "step_count": 2,
+      "tool_call_count": 1,
+      "tokens": {
+        "prompt_tokens": 3026,
+        "completion_tokens": 658,
+        "total_tokens": 3684,
+        "usage_complete": true
+      },
+      "latency_s": 4.421896416999516,
+      "final_answer": "We need to convert the given radii to altitudes (subtract Earth’s equatorial radius 6378.137 km) and then call the Hohmann‑transfer tool.\n\n```json\n{\n  \"initial_altitude_km\": 621.863,\n  \"final_altitude_km\": 35785.863\n}\n```",
+      "error": null,
+      "trace_path": "docs/examples/smoke/hoh-001.json",
+      "task_sha256": "ba7d797a27efdee2c75b3ac2bbe63d097a8a8932071a92d0fe9b484c63f5ccf1",
+      "trace_sha256": "22213dc4184185d9f56b1a10ccf2821a86cda3f2cf3454ae85663afb90f623b3",
+      "final_json_valid": false
+    },
+    {
+      "task_id": "ecl-001",
+      "status": "completed",
+      "score": {
+        "correct": true,
+        "error_type": null,
+        "message": "Réponse conforme à la vérité terrain."
+      },
+      "step_count": 2,
+      "tool_call_count": 1,
+      "tokens": {
+        "prompt_tokens": 3128,
+        "completion_tokens": 477,
+        "total_tokens": 3605,
+        "usage_complete": true
+      },
+      "latency_s": 6.696223250008188,
+      "final_answer": "{\n  \"answer\": {\n    \"total_eclipse_duration_s\": 2297.9669189453125,\n    \"units\": \"seconds\"\n  }\n}\n}",
+      "error": null,
+      "trace_path": "docs/examples/smoke/ecl-001.json",
+      "task_sha256": "6bbd333adc8b8f99ad90a39c533b521afec21414aaf6fc8ba40c18a55695fa58",
+      "trace_sha256": "85ffa605d38f8702f18925f8408b27f15883d1b4be1dc3177038b77c8d629a36",
+      "final_json_valid": false
+    },
+    {
+      "task_id": "multi-001",
+      "status": "completed",
+      "score": {
+        "correct": true,
+        "error_type": null,
+        "message": "Réponse conforme à la vérité terrain."
+      },
+      "step_count": 3,
+      "tool_call_count": 2,
+      "tokens": {
+        "prompt_tokens": 5143,
+        "completion_tokens": 960,
+        "total_tokens": 6103,
+        "usage_complete": true
+      },
+      "latency_s": 62.821508041000925,
+      "final_answer": "{\"answer\": {\"r_final_x_km\": -5368.7591375471}}",
+      "error": null,
+      "trace_path": "docs/examples/smoke/multi-001.json",
+      "task_sha256": "37476431112a32bce7bddbd5dd2f9af9d1d688f698fde8bd2acb3cc5dd6d086c",
+      "trace_sha256": "dedd8a04aef18edd3c4166701c38c053bdc211c559dcfa9882d5c56b851b8907",
+      "final_json_valid": true
+    },
+    {
+      "task_id": "trap-001",
+      "status": "completed",
+      "score": {
+        "correct": true,
+        "error_type": null,
+        "message": "Refus justifié: Altitude cannot be negative; -150 km is below Earth's surface, making the orbit physically invalid."
+      },
+      "step_count": 1,
+      "tool_call_count": 0,
+      "tokens": {
+        "prompt_tokens": 1409,
+        "completion_tokens": 192,
+        "total_tokens": 1601,
+        "usage_complete": true
+      },
+      "latency_s": 9.85363695799606,
+      "final_answer": "{\n  \"refuse\": true,\n  \"reason\": \"Altitude cannot be negative; -150 km is below Earth's surface, making the orbit physically invalid.\"\n}",
+      "error": null,
+      "trace_path": "docs/examples/smoke/trap-001.json",
+      "task_sha256": "d01713a2b874677a357988382d59a1e69e0b41b0f8a2d3bbabb14b3351784d3a",
+      "trace_sha256": "a2837076e9c6cfab0f368345cde47297842be7b73b1b85f10eee82c3d6ca291d",
+      "final_json_valid": true
+    }
+  ],
+  "passed": 4,
+  "finished_at_utc": "2026-10-03T12:53:22.000265+00:00",
+  "publication_note": "Only trace_path fields were normalized to repository-relative paths; requests, responses and timings are unchanged.",
+  "final_json_valid_count": 3
+}
