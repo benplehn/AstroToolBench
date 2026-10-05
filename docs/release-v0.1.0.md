@@ -15,11 +15,11 @@ development data and results.
 | Every reference verified | 33 analytic, 5 Cartesian RK4 and 12 independent input certificates; 50 verified outcomes. |
 | Every numerical result has a tolerance | Per-output scoring tolerances plus independent verification budgets. Boolean results and error codes use exact comparison. |
 | Every task has a family | Strict schema and reviewed family registry; missing or unknown labels fail validation. |
-| `pytest` passes | Full local suite: 422 passed on Python 3.12.13. Clean editable installation with only `.[dev]`: 352 passed, 8 optional-integration skips. GitHub CI results are recorded on the release page. |
+| `pytest` passes | Full local suite: 422 passed on both Python 3.10.22 and 3.12.13. Clean editable installation with only `.[dev]`: 352 passed, 8 optional-integration skips. GitHub CI state is recorded separately on the release page. |
 | `validate` reports no error | 50 valid, 0 invalid, 0 issues; source, manifest and accuracy report checked. |
 | README understandable | What, why, why astrodynamics, roadmap and a reproducible quick start appear before optional integrations. |
 | Public repository | `benplehn/AstroToolBench` visibility verified as `PUBLIC` through GitHub. |
-| Release `v0.1.0` | Publication gate: matching local/remote tag, successful CI at the release commit and a published GitHub release. Final evidence is recorded on the release page. |
+| Release `v0.1.0` | Publication gate: matching local/remote tag, verified source/tests and a published GitHub release. Final publication evidence and any pending external CI checks are recorded on the release page. |
 
 Expected errors are valid benchmark tasks only when scientific execution and the
 independent checker reproduce their declared code. They do not require fabricated
@@ -63,13 +63,24 @@ Before creating the release tag:
   examples, documentation and licensing in the source archive.
 - Verify all local documentation links and exclude runtime secrets/generated
   files from the release commit.
-- Push the reviewed commit and require the Python 3.10/3.12 scientific and
-  integration CI jobs to pass at that exact commit.
+- Push the reviewed commit and check the Python 3.10/3.12 scientific and
+  integration CI jobs at that commit. An external runner incident is disclosed
+  as pending CI, with independent local verification retained; a queued job is
+  never recorded as a successful job.
 
 Publish an annotated `v0.1.0` tag and a GitHub release at the tested commit.
 After publication, verify repository visibility, tag-to-commit agreement, release
 draft/prerelease state and downloadable assets. The release page records this
 final publication evidence, rather than treating a proposed publication as done.
+
+During preparation on 5 October 2026, GitHub reported an
+[Actions runner-assignment incident](https://www.githubstatus.com/incidents/3q1yb5m7ltvb).
+The Linux scientific Python 3.12 job passed at the verified scientific source
+commit; the remaining jobs were queued. Full local suites passed on Python 3.10
+and 3.12, and a fresh minimal installation passed its tests, generation and
+validation. Release evidence distinguishes these successful checks from external
+CI still waiting for runners. Any later documentation-only commit is checked for
+unchanged scientific source, tests, data, schemas and workflow configuration.
 
 [Repository](https://github.com/benplehn/AstroToolBench) ·
 [Release](https://github.com/benplehn/AstroToolBench/releases/tag/v0.1.0) ·
