@@ -1,49 +1,42 @@
-# Chat tokenizer inspection
+# Tokenizer inspection
 
-The inspection command loads the tokenizer assets for an open model and renders
-a benchmark prompt or a recorded agent conversation using its chat template.
-It does not load model weights or generate responses. The optional dependency
-requires neither PyTorch nor a GPU. It includes Transformers for the tokenizer
-and Jinja2 for applying the chat template.
+I wanted to see what a tool-calling conversation actually looks like once it
+goes through a model's chat template, and how many tokens the tool schemas cost.
+This script loads only the tokenizer of an open model (no weights, no PyTorch,
+no GPU) and renders a task or a recorded conversation.
 
 ```bash
 python -m pip install ".[tokenizer]"
 python scripts/inspect_template.py
 ```
 
-The default is `Qwen/Qwen2.5-0.5B-Instruct`. Its
-[published tokenizer configuration](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct/blob/main/tokenizer_config.json)
-includes a chat template with tool definitions, assistant tool calls and tool
-results.
+Default model: `Qwen/Qwen2.5-0.5B-Instruct`, whose
+[tokenizer config](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct/blob/main/tokenizer_config.json)
+has a chat template supporting tools, tool calls and tool results.
 
-The first run downloads tokenizer files from Hugging Face and caches them
-locally. Subsequent runs can use only the cached assets:
+The first run downloads the tokenizer from Hugging Face; after that:
 
 ```bash
 python scripts/inspect_template.py --local-files-only
 ```
 
-The output identifies the tokenizer class, vocabulary size including added
-tokens, fast-tokenizer availability and chat-template availability, then prints
-the complete rendered conversation. Vocabulary size is the number of available
-token entries, not a prompt token count or the
-number of model parameters.
+It prints the tokenizer class, vocabulary size (number of tokens in the
+vocabulary, not a prompt length), whether it's a fast tokenizer and has a chat
+template, then the rendered text.
 
-## Render a benchmark prompt
+## A task prompt
 
-The default task is `period-001`. Select another task or save the raw rendered
-text, without the terminal metadata:
+Default task is `period-001`:
 
 ```bash
 python scripts/inspect_template.py --task period-001 --local-files-only \
   --output results/templates/period-001.txt
 ```
 
-Existing output files are rejected. The command uses the same `build_messages`
-function as the agent: system instructions and the task prompt are included;
-reference answers, tolerances and other evaluation fields are excluded.
+Existing output files are refused. Messages are built with the same
+`build_messages` as the agent, so no answers or tolerances.
 
-The rendering operation is:
+Rendering:
 
 ```python
 tokenizer.apply_chat_template(
@@ -54,14 +47,12 @@ tokenizer.apply_chat_template(
 )
 ```
 
-`tokenize=False` returns text rather than numerical token IDs.
-`add_generation_prompt=True` appends the opening of an assistant message, where
-the model would begin its response. The Qwen template places tool schemas inside
-the system message, between `<tools>` and `</tools>`, and adds instructions for
-representing future tool requests. This operation describes available tools;
-it does not execute tools or generate new responses.
+`tokenize=False` gives text instead of token IDs, and `add_generation_prompt=True`
+adds the start of the assistant turn. Qwen puts the tool schemas in the system
+message between `<tools>` and `</tools>`, with instructions on how to format
+calls.
 
-## Inspect a recorded conversation
+## A recorded conversation
 
 ```bash
 python scripts/inspect_template.py \
@@ -69,24 +60,19 @@ python scripts/inspect_template.py \
   --output results/templates/nemotron-agent-qwen.txt
 ```
 
-The trace mode reads the recorded `messages` and `tools`, without loading the
-current benchmark task or executing calls. In a copy of the messages, it converts
-API JSON argument strings into dictionaries, as required by Transformers. Passing
-the original strings directly would encode arguments as quoted JSON strings
-inside the call instead of objects. Invalid or non-object arguments are rejected
-with an explicit error; the source trace is never changed.
+This reads `messages` and `tools` from the trace. One catch: the API stores tool
+arguments as JSON strings, but Transformers expects dicts. If you pass strings,
+they end up quoted inside the call. So the script converts them (on a copy, the
+trace isn't modified) and errors on invalid arguments.
 
-The default example contains two successive calls and their results. Qwen wraps
-assistant requests in `<tool_call>` and tool outputs in `<tool_response>` blocks.
-This template places tool responses inside a `user` message and omits call IDs
-from the rendered text; the original API trace retains the `tool` roles and IDs.
-The completed final answer is included without adding another assistant prefix.
-Histories ending in a tool result receive a generation prefix for the next turn.
+In the output, Qwen wraps calls in `<tool_call>` and results in `<tool_response>`,
+puts tool results inside a `user` message and drops the call IDs (they're still
+in the original trace). If the conversation ends with a final answer, no
+generation prefix is added; if it ends with a tool result, it is.
 
-See [Transformers tool use](https://huggingface.co/docs/transformers/v4.57.1/chat_extras)
-for the dictionary argument format and history serialization conventions.
+See [Transformers tool use](https://huggingface.co/docs/transformers/v4.57.1/chat_extras).
 
-## Compare token costs
+## B vs C token cost
 
 ```bash
 python scripts/inspect_template.py \
@@ -95,61 +81,50 @@ python scripts/inspect_template.py \
   --report results/templates/token-comparison.json
 ```
 
-The comparison uses only the initial system/user messages of the trace, with an
-assistant generation prefix. Actual C calls are excluded from the B comparison
-because they use different argument conventions. Each condition uses the same
-messages and tokenizer, varying only the tool schemas.
+This takes only the initial system/user messages from the trace (the C tool
+calls can't be reused with B's argument format), and renders them with B
+schemas, C schemas and no tools.
 
-| Measurement | Definition |
+| Measure | How |
 | --- | --- |
-| Schema JSON tokens | Tokens in the compact JSON tool list (`ensure_ascii=False`, separators `,` and `:`). |
-| Prompt tokens | Tokens in the complete initial prompt as rendered by the model's template. |
-| Tool overhead | Prompt tokens minus the same prompt without tools; includes the template's tool instructions. |
-| Description field cost | Full prompt minus the same prompt after removing every `description` field, including function and parameter descriptions. |
+| Schema JSON tokens | tokens of the compact JSON tool list (`ensure_ascii=False`, separators `,` `:`) |
+| Prompt tokens | tokens of the full rendered prompt |
+| Tool overhead | prompt − same prompt without tools (includes Qwen's tool instructions) |
+| Description cost | prompt − same prompt with every `description` removed |
 
-The description measurement includes keys and JSON punctuation, as well as
-description text and token-boundary effects. The difference between B and C also
-includes parameter names, inputs and schema constraints; it must not be attributed
-entirely to descriptions.
+The description cost includes the keys and punctuation too. And B vs C isn't
+only descriptions: parameter names and constraints differ as well.
 
-Token counting uses `tokenizer.encode(text, add_special_tokens=False)` because
-the rendered text already includes template control tokens. A check compares
-these IDs to `apply_chat_template(..., tokenize=True)` for the same conversation.
-Token counts are not character counts, and independently tokenized fragments
-need not add up to the token count of their concatenation.
+Counting uses `tokenizer.encode(text, add_special_tokens=False)` because the
+template already added the special tokens; I check it matches
+`apply_chat_template(..., tokenize=True)`.
 
-### Recorded measurement
+### Result
 
-The [inspection report](examples/qwen-token-comparison.json) records the pinned
-Qwen revision, library versions, source/template/schema hashes and exact messages.
-The source is the existing seven-message NVIDIA trace for `multi-001`; applying
-the Qwen template to the complete conversation produces **1624 tokens**.
+The [report](examples/qwen-token-comparison.json) has the Qwen revision, library
+versions, hashes and exact messages. Source: the seven-message Nemotron trace for
+`multi-001`. The whole conversation rendered with Qwen is **1624 tokens**.
 
-| Initial `multi-001` prompt measurement | B | C |
+| Initial `multi-001` prompt | B | C |
 | --- | ---: | ---: |
-| Compact schema JSON tokens | 350 | 705 |
-| Complete prompt tokens | 845 | 1220 |
-| Tool overhead versus the 290-token prompt without tools | 555 | 930 |
-| Prompt tokens without description fields | 720 | 813 |
-| Description field cost | 125 | 407 |
+| Schema JSON tokens | 350 | 705 |
+| Prompt tokens | 845 | 1220 |
+| Tool overhead (vs 290 without tools) | 555 | 930 |
+| Without descriptions | 720 | 813 |
+| Description cost | 125 | 407 |
 
-C adds **375 prompt tokens** relative to B on this initial request. Removing all
-C description fields saves **407 tokens** with other schema fields unchanged.
-These measurements describe the complete set of four tool definitions, including
-tools not used by this particular task. Definitions are included in each model
-request of the agent, so their input-token cost recurs as the conversation grows;
-exact totals must be counted in each full request because token boundaries vary.
+So C costs **375 more tokens** than B on the first request, and C's descriptions
+alone are **407 tokens**. That's for all four tools, even the ones this task
+doesn't need, and the schemas are resent at every request, so it adds up over a
+conversation.
 
-The 1624-token inspection is one rendering of the completed conversation. It is
-not the sum of input/output usage from the original provider's three requests.
+The 1624 tokens is one rendering of the finished conversation, not the sum of
+the three API requests.
 
-See Hugging Face's [chat template documentation](https://huggingface.co/docs/transformers/v4.57.1/chat_templating)
-for message formatting and generation prompts.
+Docs: [chat templates](https://huggingface.co/docs/transformers/v4.57.1/chat_templating).
 
-Use `--model` to select another repository or local directory and `--revision`
-to select a branch, tag or commit hash. For reproducible inspections, use a commit
-hash rather than the moving default branch. Remote custom Python code is disabled.
+`--model` picks another model or local folder, `--revision` a branch/tag/commit
+(use a commit hash to make it reproducible). Remote code is disabled.
 
-This Qwen tokenizer describes Qwen's input representation. The source trace was
-generated by NVIDIA, but this is a local reserialization, not evidence of the
-exact template or billable token counts used by the hosted NVIDIA model.
+Keep in mind this is Qwen's tokenizer: the trace came from Nemotron on NVIDIA's
+API, and this tells nothing about the exact template or billed tokens there.

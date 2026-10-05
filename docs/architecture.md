@@ -1,206 +1,159 @@
 # Architecture
 
-The official scientific benchmark lives in `astrotoolbench` and runs offline.
-Its numerical tools, authoring, reference generation and validation have no model
-client dependency. The existing `atb` package contains the legacy interface and
-model experiments; it uses the same scientific functions through compatibility
-imports. This keeps the scientific corpus independent of those integrations.
+Two parts:
 
-## Repository layout
+- `astrotoolbench`: the benchmark itself (tools, tasks, reference generation,
+  validation). Runs fully offline, no LLM dependency.
+- `atb`: my first agent prototype, which runs a model against the tools. It
+  imports the same scientific functions, so the two never disagree on the math.
+
+## Layout
 
 ```text
 src/
   astrotoolbench/
     tools/
-      propagation.py   Kepler solver, orbital elements and propagation
-      maneuvers.py     Vector delta-v and Hohmann transfers
-      eclipse.py       Shadow geometry and sampled eclipse intervals
-      proximity.py     Minimum separation over an observation window
+      propagation.py   Kepler solver, orbital elements, propagation
+      maneuvers.py     ΔV and Hohmann transfer
+      eclipse.py       shadow test and eclipse intervals
+      proximity.py     closest approach over a time window
       constants.py     Earth constants
-      _validation.py   Shared scalar/vector and sampling checks
+      _validation.py   input checks shared by the tools
     benchmark/
-      schema.py        Strict task and answer-free specification models
-      catalog.py       Scientific recipe inputs, outputs and tool dependencies
-      loader.py        Whole-file parsing and partition-aware loading
-      reference.py     Scientific recipe execution
-      verification.py Independent analytic, Cartesian RK4 and input checks
-      validator.py     Read-only corpus validation and diagnostic reports
-      comparison.py    Strict answer comparison with per-output tolerances
-      families.py      Authored physical and diagnostic situations
-      coverage.py      Publication size and difficulty requirements
-      splits.py        Reviewed family registry and contamination audit
-      generation.py    Source-to-reference generation and verification report
-      artifacts.py     Deterministic serialization and safe file replacement
-      paths.py         Shared repository-relative data defaults
-      build.py         Authoring regeneration of all reviewed artifacts
-    generate_references.py  Public offline reference command
-    validate.py        Public offline validation command
-  astrodyn_tools/       Compatibility imports; no duplicated calculations
+      schema.py        task and specification models (Pydantic)
+      catalog.py       recipes: inputs, outputs, tools used
+      loader.py        loads a whole file, filters by split
+      reference.py     runs the recipe for a task
+      verification.py  independent checks (analytic, RK4, inputs)
+      validator.py     read-only validation and reports
+      comparison.py    compares an answer to the reference
+      families.py      the problem definitions
+      coverage.py      minimum size/difficulty requirements
+      splits.py        family registry and leak checks
+      generation.py    specifications -> references + report
+      artifacts.py     deterministic JSON output, safe file writes
+      paths.py         default data paths
+      build.py         regenerates all committed artifacts
+    generate_references.py
+    validate.py
+  astrodyn_tools/       old import path, re-exports the same functions
   atb/
-    tools.py           B/C function schemas
-    executor.py        Tool dispatch, conversion and result serialization
-    tasks.py           Legacy task model and JSONL loader
-    scoring.py         Final-response parsing and reference comparison
-    client.py          Provider configuration and Chat Completions transport
-    prompts.py         Shared system instructions and prompt-only messages
-    agent.py           Bounded model/tool orchestration and conversation traces
-    agent_cli.py       Single-task execution and scoring command
-    inspection.py      Completion inspection, trace persistence and CLI
-    template_inspection.py  Local chat rendering and token-cost comparison
-tasks/
-  astrodynamics/
-    specifications.jsonl  Authored inputs/contracts without numeric answers
-    tasks.jsonl        Official independently verified references
-    splits.json        Reviewed family groups and partition task IDs
-schemas/
-  task-v0.1.schema.json       Exported official task schema
-  task-spec-v0.1.schema.json  Exported authoring schema
-examples/
-  scientific_workflow.py  Offline transfer, propagation and arrival shadow
-benchmark/
-  tasks.jsonl          Legacy development data for existing agent experiments
+    tools.py           B/C tool schemas
+    executor.py        dispatches a tool call, returns JSON
+    tasks.py           dev task model and loader
+    scoring.py         parses the final answer and scores it
+    client.py          provider config and Chat Completions calls
+    prompts.py         system prompt and messages
+    agent.py           the tool-calling loop and traces
+    agent_cli.py       atb-run
+    inspection.py      atb-inspect (single completion)
+    template_inspection.py  chat template rendering and token counts
+tasks/astrodynamics/
+  specifications.jsonl  tasks without answers
+  tasks.jsonl          tasks with verified answers
+  splits.json          split manifest
+schemas/                exported JSON Schemas
+examples/scientific_workflow.py
+benchmark/tasks.jsonl   the older dev tasks used by atb
 scripts/
-  inspect_completion.py  Repository-local wrapper around the inspection CLI
-  inspect_template.py    Chat-template inspection and B/C token counts
-  run_agent.py           Repository-local wrapper around the agent CLI
-  list_models.py        Provider model discovery
-  make_references.py    Legacy development task/reference generation
-  smoke_test.py         Five-task integration check with a saved outcome summary
-results/
-  completions/         Raw request/response traces, excluded from Git
-  traces/<run_id>/      Agent conversations, excluded from Git
-  templates/           Rendered text and token reports, excluded from Git
-  smoke/               Integration summaries, including failures, excluded from Git
-pyproject.toml         Package metadata, dependencies and optional integration extras
-MANIFEST.in            Reviewed assets included in source distributions
-LICENSE                MIT license
+  inspect_completion.py, run_agent.py   wrappers around the CLIs
+  inspect_template.py   template inspection / B vs C tokens
+  list_models.py        list provider models
+  make_references.py    builds the dev tasks
+  smoke_test.py         five-task integration test
+results/                local outputs (completions, traces, templates, smoke), gitignored
 ```
 
-Documentation, tests and CI live in `docs/`, `tests/` and `.github/workflows/`.
-`tests/tools/` tests science, `tests/benchmark/` tests the official corpus, and
-`tests/test_validation.py` tests the validator. `MANIFEST.in` includes reviewed
-data, exported schemas, documentation and examples in source distributions.
-The `src/` layout keeps the package importable through a normal installation.
-License metadata and the full `LICENSE` text are included in built distributions.
-The installed `atb-inspect` command calls
-`atb.inspection.main`; `atb-run` calls `atb.agent_cli.main`. Repository wrappers
-call the same implementations with paths anchored to the checkout.
+`atb-inspect` → `atb.inspection.main`, `atb-run` → `atb.agent_cli.main`. The
+scripts in `scripts/` call the same code but resolve paths from the repo root.
 
-## Numerical backend
+CI is in `.github/workflows/tests.yml`.
 
-`astrotoolbench.tools` exposes period, propagation, delta-v, Hohmann transfer, eclipse and closest
-approach routines. It has no dependency on a model provider. Physical assumptions
-and units belong to the numerical routines and their tests. Existing public
-`astrodyn_tools` imports forward to exactly the same functions. No numerical
-algorithm or reference value changes as part of the package move.
+## Tools
 
-`atb.tools` describes the subset available to models: period, Hohmann, propagation
-and eclipses. The B and C interfaces wrap the same calculations. C changes the
-input conventions for period and transfer to altitudes and makes units explicit.
+`astrotoolbench.tools` has period, propagation, ΔV, Hohmann, eclipse and closest
+approach. Units and assumptions are handled there and tested there.
+`astrodyn_tools` just re-exports them (moving the package didn't change any
+value).
 
-`atb.executor.execute_tool(api_version, name, arguments_json)` receives the tool
-name and JSON argument string. It dispatches to a known function, performs the
-interface-specific conversions and returns JSON containing a result or error.
-There is no execution of arbitrary model-generated Python.
+`atb.tools` exposes a subset to the model: period, Hohmann, propagation and
+eclipses. B and C call the same functions; C uses altitudes instead of radii for
+period and transfer, and puts units in the parameter names.
 
-## Benchmark data and scoring
+`atb.executor.execute_tool(api_version, name, arguments_json)` looks up a known
+function, converts the arguments and returns JSON with a result or an error. The
+model never gets to run arbitrary code.
 
-`astrotoolbench.benchmark` owns the official versioned scientific task format.
-Its loader, generator and validator share strict parsing and the reviewed split
-audit. Generation takes answer-free specifications; validation recomputes stored
-references and checks independent scientific budgets. The exported schemas stay
-in `schemas/`, while their Python source models stay beside the loader.
-See [validation](validation.md) and [reference generation](reference-generation.md).
+## Benchmark data
 
-The milestone 10 reorganization moves scientific modules formerly in
-`atb.benchmark` to `astrotoolbench.benchmark` and moves the official flat data files
-into `tasks/astrodynamics/`. Imports and documented commands use these canonical
-paths. Existing legacy model commands and `benchmark/tasks.jsonl` retain their
-own integration contract.
+`astrotoolbench.benchmark` defines the task format. Loader, generator and
+validator all use the same strict parsing and split checks. Generation starts
+from specifications without answers; validation recomputes every reference and
+checks it against the independent method. See [validation](validation.md) and
+[reference generation](reference-generation.md).
 
-`atb.tasks.Task` defines a prompt, family, split, expected tools, numerical
-parameters, reference and tolerances. `load_tasks()` reads JSONL, rejects duplicate
-IDs and supports family/split filtering.
+The scientific modules used to live in `atb.benchmark` and the data files at the
+root; I moved them to `astrotoolbench.benchmark` and `tasks/astrodynamics/`. The
+old `atb` commands and `benchmark/tasks.jsonl` still work as before.
 
-`atb.scoring.score(task, final_text)` evaluates an explicit final-response JSON
-object against the reference. It reports missing fields, incorrect refusals and
-values outside tolerance. Its current scope is final-answer correctness;
-tool-selection and argument correctness need separate evaluation.
+On the `atb` side, `atb.tasks.Task` holds a prompt, family, split, expected
+tools, parameters, reference and tolerance. `atb.scoring.score(task, final_text)`
+checks the final JSON answer: missing fields, wrong refusals, values out of
+tolerance. It doesn't check whether the right tools were called.
 
-References and expected calls remain on the evaluation side. Completion requests
-include only the task prompt, system message and tool schemas. Trace metadata
-records the task ID, family and split for analysis, while reference values and
-tolerances are excluded from the trace.
+Reference answers never go to the model: requests only contain the system prompt,
+the task prompt and the tool schemas. Traces store task ID, family and split, but
+not the reference.
 
-## Model transport and inspection
+## Model calls and inspection
 
-`atb.client` manages endpoint configuration and request construction. Credentials
-are selected for the configured provider and excluded from representations.
-Configuration loading does not mutate the process environment. The transport
-returns the unmodified SDK response and closes its client after each request.
+`atb.client` builds requests for the configured endpoint and picks the right API
+key. Keys never show up in reprs or logs, and loading `.env` doesn't modify
+`os.environ`. Each call returns the raw SDK response and closes the client.
 
-`atb.inspection` selects a task, constructs messages, sends one completion request
-and records the raw response. Its response inspector reports IDs, function names,
-JSON argument strings, parsed arguments, finish reasons and usage. The CLI can
-preview a request without network access or credentials.
+`atb.inspection` sends a single request and saves the raw response, then prints
+the tool calls (IDs, names, arguments, finish reason, usage). It doesn't execute
+the tools. `--dry-run` shows the request without network or key.
 
-Inspection finishes at the model response. The requested function is not executed
-in this path. A valid JSON argument object is a transport check; domain validity
-and numerical correctness are responsibilities of execution and evaluation.
-
-## Inspection trace contract
-
-Each completion-inspection record has a schema version and four sections:
+An inspection record has four parts:
 
 | Section | Contents |
 | --- | --- |
-| `metadata` | Task identity, split, interface condition, endpoint, timestamp, latency, timeout, retries, runtime/SDK versions and benchmark SHA-256. |
-| `request` | Complete Chat Completions request body, including messages, schemas and generation settings. |
-| `response` | Unmodified JSON-compatible SDK dump, including provider-specific fields. |
-| `observations` | Inspection of tool requests and usage; explicitly records that tools were not executed. |
+| `metadata` | task, split, interface, endpoint, time, latency, timeout, retries, versions, dataset SHA-256 |
+| `request` | full request body (messages, schemas, settings) |
+| `response` | raw SDK response, including provider-specific fields |
+| `observations` | what tool calls came back and usage; notes that nothing was executed |
 
-The benchmark hash identifies the data snapshot used by the request. Reproducible
-inputs do not guarantee identical responses from a hosted model. Temperature zero
-and recorded settings support comparison but do not establish determinism.
+Temperature 0 helps, but a hosted model can still answer differently on the
+same input.
 
-## Agent orchestration
+## Agent loop
 
-`atb.agent.run_agent(task, model, api_version, max_steps=8)` selects the A/B/C
-schemas, constructs shared system/user messages and executes bounded model turns.
-Every assistant message retains its function calls. One tool-result message per
-call carries the original `tool_call_id`. Multiple calls in a response are
-handled before requesting another completion.
+`atb.agent.run_agent(task, model, api_version, max_steps=8)` picks the A/B/C
+schemas, builds the messages and loops: call the model, run any requested
+tools, send back one tool message per call (with the matching `tool_call_id`),
+repeat. Several calls in one response are all run before the next request.
 
-Invalid JSON, unknown tools and numerical execution failures become correlated
-error results that the model can correct. Malformed protocol IDs stop the run
-before any call in that batch is dispatched. Truncation, provider refusal, API
-errors and exhausted request budgets have distinct terminal statuses.
+Bad JSON, unknown tools or a failing tool become error messages the model can
+react to. Missing or duplicate call IDs stop the run before anything is
+executed. Truncation, provider refusal, API errors and running out of steps each
+have their own status.
 
-Outbound assistant messages contain standard conversation fields. Raw provider
-responses, including extra fields, remain in the per-request records. Generation
-settings, schemas, messages, tool results, request/response pairs, token usage and
-latency are persisted. Writes are atomic and an existing run/task trace is never
-overwritten by a new run.
+The trace saves settings, schemas, messages, tool results, every request and raw
+response, tokens and latency. It's written atomically after every turn and never
+overwrites an existing trace.
 
-The agent returns its trace independently of reference scoring. `atb.agent_cli`
-loads the task, runs the agent and invokes `score()` only if a final answer is
-available. A completed conversation can therefore still have an incorrect score.
-See [agent execution](agent-execution.md) for the detailed contract.
+`run_agent` doesn't score anything; `atb.agent_cli` calls `score()` afterwards
+if there is a final answer. Details in [agent execution](agent-execution.md).
 
-`atb.template_inspection` adapts recorded argument strings to dictionaries in a
-copy of the messages, renders a local tokenizer's chat template and counts tokens.
-It uses recorded schemas for trace inspection and compares current B/C schemas
-on the same initial messages. It never calls a model API or executes a tool.
+`atb.template_inspection` renders a conversation with a local tokenizer's chat
+template and counts tokens, without calling any API.
 
-## Evaluation and training boundaries
+## Evaluation vs training data
 
-All conditions receive the same system instructions and task prompt. Shared
-instructions state Earth constants and the final-answer JSON contract. Reference
-values, tolerances, expected calls and private parameters remain outside model
-requests. Condition A omits both tools and tool choice from the request.
+All conditions get the same system prompt (with Earth constants and the expected
+answer format) and the same task prompt. Condition A sends no tools at all.
 
-Traces record the task family, split and a task fingerprint. They are raw run
-artifacts, including failed and development runs. Training exports must separately
-select eligible, successful traces and enforce family-based separation from the
-evaluation set. Current development traces are not automatically training data.
-Comparative evaluation, training and inference experiments remain future work.
+Traces include failures and dev runs. They aren't training data as-is: a future
+training export will have to pick good traces and respect the family split.
+Evaluation and training are future work.

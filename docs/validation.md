@@ -1,6 +1,6 @@
-# Corpus validation — milestones 8–9
+# Validation
 
-From the repository root after installing the base package:
+From the repo root:
 
 ```bash
 python -m astrotoolbench.validate
@@ -8,23 +8,20 @@ python -m astrotoolbench.validate --json
 python -m pytest -q
 ```
 
-The validator reads every nonblank JSONL record, gathers schema failures with
-file/line context, checks duplicate IDs and the reviewed family policy, verifies
-that required tools exist, and recomputes every scientific reference against its
-independent certificate. It checks units, supported outputs, finite numbers and
-positive numerical tolerances through the same strict schema used by the loader.
-Expected errors count as valid tasks only if the backend and independent input
-checks reproduce their declared code. A solver failure is a validation issue.
+The validator reads every line of the dataset and checks: schema (with file and
+line on errors), duplicate IDs, family registry, that the tools exist, units,
+outputs, finite numbers, positive tolerances, and it recomputes every reference
+and compares it to the independent check. Error tasks only count as valid if
+both the tools and the input checker produce the declared code. A solver failure
+is reported as an issue.
 
-Default validation also requires publication coverage: at least 40 tasks, six
-categories, five families and four difficulties, with the reviewed approximate
-40/25/15/20 mix. It compares the dataset's metadata, inputs and answer contracts
-with `tasks/astrodynamics/specifications.jsonl`, checks `tasks/astrodynamics/splits.json`,
-and verifies hashes, counts, methods and budgets in `docs/reference-verification.json`.
-Historical observed errors are checked against their budgets; they need not be
-bit-identical to calculations on another numerical platform.
+By default it also checks the dataset as a whole: at least 40 tasks, 6
+categories, 5 families, 4 difficulties around 40/25/15/20 %. And it compares
+the dataset with `specifications.jsonl`, `splits.json` and
+`docs/reference-verification.json` (hashes, counts, methods, budgets). The stored
+errors only need to be within budget, not bit-identical on another machine.
 
-The current human-readable summary is:
+Current output:
 
 ```text
 AstroToolBench v0.1
@@ -46,12 +43,10 @@ Splits: train=24, validation=6, test=20
 ✓ Benchmark valid
 ```
 
-The six functions span five scientific areas: propagation, ΔV, transfer, eclipse
-geometry/duration, and proximity. `Invalid` counts broken records; `Issues` also
-includes corpus-wide failures such as inadequate coverage or an outdated artifact.
-A corpus-wide issue fails validation even when its records are individually sound.
+`Invalid` counts broken tasks; `Issues` also counts dataset-level problems
+(coverage, outdated report…). Those fail validation even if every task is fine.
 
-## Custom inputs and exit codes
+## Custom files and exit codes
 
 ```bash
 python -m astrotoolbench.validate \
@@ -62,33 +57,28 @@ python -m astrotoolbench.validate \
   --json
 ```
 
-Companion files are included automatically for the default official dataset.
-For custom `--tasks` paths, only explicitly supplied companions are compared.
-Use `--allow-subset` during development to skip publication coverage, while keeping
-schema, uniqueness, tool, scientific and split checks. An empty file is always
-invalid; a development subset is not a certified complete v0.1 release.
+With the default dataset, the companion files are checked automatically. With a
+custom `--tasks`, only the ones you pass are. `--allow-subset` skips the size and
+coverage checks (everything else still runs) for working on part of the
+dataset. An empty file is always invalid.
 
-Exit code **0** means every requested check passed. Exit code **1** means one or
-more issues; malformed/missing files also produce reports. Human-readable issues
-go to stderr with file, line and task ID when available. `--json` prints a single
-JSON report to stdout containing counts, partitions, artifact paths and issues.
-Validation never modifies data, repairs references or calls a model provider.
+Exit **0** = all good, **1** = at least one issue. Errors go to stderr with file,
+line and task ID; `--json` prints one JSON report to stdout. The validator never
+modifies files and never calls a model.
 
-## Regression protection and CI
+## Tests and CI
 
-- `tests/tools/` checks nominal, boundary and invalid inputs for each scientific
-  area, plus compatibility imports after the package reorganization.
-- `tests/benchmark/` checks the schema, corpus coverage, split leakage, numerical
-  comparisons, generation failures and independent scientific certificates.
-- `tests/test_validation.py` checks broken lines, duplicates, unavailable tools,
-  numerical drift, wrong error codes, source/artifact mismatch, CLI output and
-  read-only behavior.
+- `tests/tools/`: normal, edge and invalid cases for each tool, plus the old
+  import path.
+- `tests/benchmark/`: schema, coverage, split leaks, comparisons, generation
+  failures, independent checks.
+- `tests/test_validation.py`: broken lines, duplicates, missing tools, drifting
+  numbers, wrong error codes, spec/dataset mismatch, CLI output, read-only.
 
-The reviewed reference digest and the original 48-task digest remain frozen.
-Changing an expected value requires an explicit review after independent
-verification; regeneration alone does not update those test snapshots.
+The reference digest (and the older 48-task one) are pinned in the tests, so
+regenerating alone can't change an expected value.
 
-CI runs a scientific job on Python 3.10 and 3.12 with only base dependencies and
-pytest. It validates committed data, regenerates into a temporary directory and
-validates that output, without LLM packages, credentials or a tokenizer download.
-The existing integration job separately covers the legacy model clients.
+CI runs on Python 3.10 and 3.12. One job installs only the base package +
+pytest, validates the committed data, regenerates everything in a temp folder
+and validates that too (no LLM packages, no keys, no tokenizer). A second job
+runs the full suite with the `atb` extras.

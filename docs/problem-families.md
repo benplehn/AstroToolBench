@@ -1,45 +1,38 @@
-# Problem families — milestones 4–6
+# Problem families
 
-The official corpus contains **50 tasks**, covering all six requested authoring
-groups. Milestone 5 adds equal-radius Hohmann and zero-impulse limits. These are
-authored physical/diagnostic situations rather than radius-only variations of one
-prompt. The 22 `family` labels describe problem structure and
-are distinct from the six `category` groups.
+50 tasks in 6 categories. I tried to make each one a different physical or
+diagnostic situation, not the same prompt with another radius. The 22 `family`
+labels describe the problem structure; `category` is just the broad topic.
 
-| Group / category | Count | Situations |
+| Category | Count | Situations |
 | --- | ---: | --- |
-| A / propagation | 8 | Quarter/full period, backward/zero propagation, periapsis-to-apogee, arbitrary elliptic epoch, comparison of propagated states, unbound state. |
-| B / maneuvers | 9 | Vector turn, reversal, raising/lowering Hohmann, comparison of transfers, periapsis/apogee circularization, incompatible velocity units, equal-radius transfer. |
-| C / eclipse | 8 | Illuminated/shadowed positions, one/two periods, clipped/zero window, Sun normal to orbital plane, null solar direction. |
-| D / proximity | 8 | Separation at a specified epoch, interior/boundary minimum, constant separation, zero window, identical trajectories, invalid interval. |
-| E / multistep | 8 | Transfer time then circular/elliptic propagation; rising/lowering transfer time then eclipse window; actual transfer departure impulse, arrival position and shadow. |
-| F / diagnostic | 9 | Missing velocity, unsupported J2, meters passed as kilometers, body-intersecting ellipse, negative observation duration, incompatible time accuracy, underground transfer, zero mu, valid zero impulse. |
+| A / propagation | 8 | quarter and full period, backward and zero time, periapsis → apoapsis, arbitrary elliptic time, comparing two propagated states, unbound state |
+| B / maneuvers | 9 | vector turn, reversal, Hohmann up and down, comparing transfers, circularization at periapsis/apoapsis, mixed velocity units, equal-radius transfer |
+| C / eclipse | 8 | lit/shadowed points, one and two periods, clipped and zero window, Sun normal to the orbit, null Sun direction |
+| D / proximity | 8 | distance at a given time, min inside/at the edge of the window, constant distance, zero window, identical orbits, invalid window |
+| E / multistep | 8 | transfer time → circular/elliptic propagation, transfer time → eclipse, real departure burn → arrival position and shadow |
+| F / diagnostic | 9 | missing velocity, J2 requested, meters given as km, ellipse hitting the Earth, negative duration, impossible time precision, transfer below the surface, μ = 0, valid zero ΔV |
 
-Difficulty distribution: **20 simple, 12 multistep, 8 diagnostic, 10 trap** (40%, 24%, 16%, 20%).
-Outcome distribution: **38 successes and 12 justified errors**. A diagnostic can
-have a numerical result (for example a zero-duration observation), and valid
-backward propagation is included rather than incorrectly treating every negative
-time as physically invalid.
+Difficulty: **20 simple, 12 multistep, 8 diagnostic, 10 trap** (40/24/16/20 %).
+Outcomes: **38 answers, 12 expected errors**. A diagnostic task can still have a
+numerical answer (e.g. a zero-length observation), and backward propagation is
+included as a valid case: negative time isn't automatically wrong.
 
-Families are defined in `astrotoolbench.benchmark.families.problem_definitions`. Inputs are
-constructed by direct Cartesian geometry and elementary orbital relations.
-`build_tasks` computes numerical references from the scientific tools and refuses
-to emit a record without an independent certificate. Selected intermediate and
-final results have their own units and tolerances; all requested results must pass.
+The definitions are in `astrotoolbench.benchmark.families.problem_definitions`.
+Inputs are built from simple Cartesian geometry and orbital relations.
+`build_tasks` computes the references with the tools and refuses to write a task
+that has no independent check. Some tasks also check intermediate results, each
+with its own unit and tolerance.
 
-The eight category E problems contain dependent calculations. For the first six,
-the stated initial orbit is propagated/observed **without applying the Hohmann
-impulses**: the transfer supplies the analysis duration. The last two apply the
-departure impulse and propagate the transfer ellipse before checking arrival
-shadow. Their prompts make that physical distinction explicit.
+In category E, the first six tasks use the transfer only to get a duration: the
+initial orbit is propagated **without** the Hohmann burns. The last two actually
+apply the departure burn and follow the transfer ellipse to check the arrival
+shadow. The prompts say which one it is.
 
-The corpus now has **24 train, 6 validation and 20 test** tasks. The 22 labels
-are grouped into 11 reviewed equivalence/composition groups, with zero local
-cross-partition family, successful-recipe or duplicate-problem overlaps. Primitive
-tool reuse in held-out compositions is intentional. See
-[family split policy](data-splits.md) for the registry, enforced checks and scope.
+Split: **24 train / 6 validation / 20 test**, 11 family groups, no overlap. Tools
+are shared between splits on purpose. See [data splits](data-splits.md).
 
-To regenerate and inspect the corpus from the repository root:
+To rebuild and check:
 
 ```bash
 python -m astrotoolbench.benchmark.build
@@ -47,7 +40,6 @@ python -m astrotoolbench.generate_references --check
 python -m pytest tests/tools tests/test_core.py tests/benchmark -q
 ```
 
-The output includes answer-free task sources, machine-readable schemas, split
-manifest and the per-task independent accuracy report. The committed reference
-digest protects against silent result
-changes; updating it is an explicit review step after re-verification.
+This regenerates task sources, schemas, split manifest and the verification
+report. A test pins a digest of the reference values, so any change to an
+answer shows up and has to be updated on purpose.

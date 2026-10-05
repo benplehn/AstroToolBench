@@ -1,129 +1,118 @@
-# Completion inspection
+# Inspecting a completion
 
-Inspect how a model represents scientific tool requests through an
-OpenAI-compatible Chat Completions API. The command prints the request, preserves
-the raw response and records observations in a JSON trace.
+`atb-inspect` sends one task to a model through an OpenAI-compatible Chat
+Completions API and shows how it asks for tools. It prints the request, keeps the
+raw response and saves everything to a JSON file. It doesn't execute any tool.
 
 ## Usage
 
-Install `.[dev,llm]`, then run from the repository root:
+Install `.[dev,llm]`, then from the repo root:
 
 ```bash
 atb-inspect --dry-run
 atb-inspect --task period-001 --require-tool-call
 ```
 
-`period-001` asks for the period of a circular Earth orbit at 400 km altitude. The
-request includes all four C tool schemas. The model receives the prompt without
-the reference, tolerance, numerical parameters or expected tool names.
+`period-001` asks for the period of a circular orbit at 400 km altitude. The
+request contains the four C tool schemas, and of course not the answer.
 
-The installed command resolves default paths relative to the current directory.
-For a repository-local entry point that resolves defaults relative to the checkout:
+The installed command resolves paths from the current directory. To resolve
+them from the repo instead:
 
 ```bash
 python scripts/inspect_completion.py --task period-001
 ```
 
-Traces are saved under `results/completions/`. `--output` selects another path;
-existing files are rejected before contacting the provider. See the
-[architecture](architecture.md) for the trace format and component boundaries.
+Output goes to `results/completions/` (or `--output`; an existing file is
+refused before calling the API). Record format: see [architecture](architecture.md).
 
 ## Configuration
 
-Copy `.env.example` to `.env` and set the credential locally. The default endpoint
-is `https://integrate.api.nvidia.com/v1` and the default model is
-`nvidia/nemotron-3.5-lightning-30b-a3b`.
+Copy `.env.example` to `.env` and add your key. Defaults: endpoint
+`https://integrate.api.nvidia.com/v1`, model `nvidia/nemotron-3.5-lightning-30b-a3b`.
 
-| Endpoint host | Credential fallback |
+| Host | Key used |
 | --- | --- |
 | `integrate.api.nvidia.com` | `NVIDIA_API_KEY` |
 | `openrouter.ai` | `OPENROUTER_API_KEY` |
 | `api.openai.com` | `OPENAI_API_KEY` |
-| Other compatible endpoint | Set `LLM_API_KEY` explicitly |
+| anything else | `LLM_API_KEY` |
 
-`LLM_API_KEY` overrides the matching provider credential. Process variables take
-precedence over `.env`; `--model` overrides `LLM_MODEL`. To change providers, set
-both `LLM_BASE_URL` and `LLM_MODEL`, then provide that provider's key. Non-NVIDIA
-endpoints require an explicit model ID.
+`LLM_API_KEY` always wins if set. Environment variables override `.env`, and
+`--model` overrides `LLM_MODEL`. To switch provider, set `LLM_BASE_URL` and
+`LLM_MODEL` (the model is required for non-NVIDIA endpoints).
 
-Model IDs can be listed where the provider supports `/models`:
+List models (when the provider has `/models`):
 
 ```bash
 python scripts/list_models.py --filter nemotron
 ```
 
-Being listed does not establish support for function calling.
-The first integration records used Nemotron 3 Super. Its hosted endpoint returned
-HTTP 410 on 3 October 2026, so the default now uses Nemotron 3.5 Lightning. Saved
-Super traces keep their original model identity. See the
-[release validation](release-validation.md) for the current five-task check.
+Being in the list doesn't mean the model supports tool calls.
 
-## Reading a response
+I started with Nemotron 3 Super, but its endpoint returned HTTP 410 on 3 October
+2026, so the default is now Nemotron 3.5 Lightning. The old Super traces keep
+their model name. See the [smoke test](release-validation.md).
 
-| Field | Interpretation |
+## Reading the response
+
+| Field | Meaning |
 | --- | --- |
-| `message.tool_calls` | Structured function requests produced by the model. |
-| `finish_reason` | `tool_calls` indicates a tool request; `stop` usually indicates a text answer; `length` indicates truncation. |
-| `function.name` | Requested function name. |
-| `function.arguments` | A string containing JSON that the application must parse and validate. |
-| `tool_calls[].id` | Correlation ID for a later tool-result message. |
-| `usage` | Provider-reported tokens and optional breakdowns; may be absent. |
+| `message.tool_calls` | the tool calls the model asked for |
+| `finish_reason` | `tool_calls` = tool request, `stop` = usually a text answer, `length` = cut off |
+| `function.name` | requested function |
+| `function.arguments` | a JSON **string**, to parse and validate |
+| `tool_calls[].id` | ID to use in the tool reply |
+| `usage` | token counts, may be missing |
 
-The inspector handles multiple calls, malformed argument JSON, empty choices and
-absent usage. It preserves the raw fields while displaying parsed arguments.
-`--require-tool-call` checks that all returned calls have a function name, ID and
-JSON-object arguments, and that at least one call exists. Schema compliance,
-physical validity and correct function selection need additional validation.
+It handles multiple calls, broken JSON, empty choices and missing usage.
+`--require-tool-call` fails unless there's at least one call and every call has
+a name, an ID and JSON-object arguments. It doesn't check the schema, the
+physics or whether it's the right function.
 
-## Recorded integration check
+## Example
 
-A call on 2 October 2026 with Nemotron 3 Super and `tool_choice: "auto"` requested
-`orbital_period` with the JSON string `{"altitude_km":400}` and returned
-`finish_reason: "tool_calls"`. The API reported 1,331 prompt tokens, 61 completion
-tokens and 1,392 total tokens. Observed completion latency was approximately
-11.95 seconds.
+On 2 October 2026, Nemotron 3 Super with `tool_choice: "auto"` asked for
+`orbital_period` with `{"altitude_km":400}` and `finish_reason: "tool_calls"`.
+1,331 prompt + 61 completion = 1,392 tokens, about 11.95 s.
 
-The [complete recorded trace](examples/nvidia-nemotron-orbital-period.json)
-contains the actual request and SDK response. This verifies tool-request generation
-for one development task. It does not establish numerical answer accuracy or a
-success rate across the benchmark.
+The [full trace](examples/nvidia-nemotron-orbital-period.json) has the real
+request and response. It only shows that the model produces a sensible tool call
+on one task.
 
-## Controls and failure handling
+## Options
 
-| Option | Behavior |
+| Option | |
 | --- | --- |
-| `--dry-run` | Prints the request without network access or a credential. |
-| `--tool-choice auto` | Lets the model decide whether to request tools; the default. |
-| `--tool-choice required` | Forces a tool request if supported by the provider; changes the experimental condition. |
-| `--tool-choice none` | Exposes the schemas but disables calls; condition A must instead omit schemas. |
-| `--timeout 60` | SDK request timeout in seconds. |
-| `--max-tokens 4096` | Output token budget, potentially including reasoning. |
-| `--env-file PATH` | Explicit dotenv configuration file. |
+| `--dry-run` | print the request, no network or key needed |
+| `--tool-choice auto` | model decides (default) |
+| `--tool-choice required` | force a tool call if the provider supports it (changes the experiment) |
+| `--tool-choice none` | schemas sent but calls disabled (condition A omits the schemas instead) |
+| `--timeout 60` | request timeout in s |
+| `--max-tokens 4096` | output tokens, may include reasoning |
+| `--env-file PATH` | another dotenv file |
 
-Requests use temperature zero. Automatic retries are disabled. The client is
-closed after the request. API failures return exit code 1 with concise diagnostic
-messages and no provider error body. No response trace is written for a failed API
-request. Responses that fail `--require-tool-call` are preserved before exiting
-with code 1.
+Temperature 0, no automatic retries, client closed after the call. API errors
+give exit code 1 with a short message (the provider's error body isn't printed)
+and no trace. If `--require-tool-call` fails, the response is still saved, then
+exit 1.
 
-HTTP 410 reports that the model is unavailable and suggests an explicit
-`--model` override. The runner never silently switches models within an experiment.
+On HTTP 410 it suggests passing `--model`. It never switches models silently.
 
-## Verification
+## Tests
 
 ```bash
 python -m pytest -q
 ```
 
-Tests cover configuration, credential routing, request fidelity, client cleanup,
-exclusion of reference answers, malformed/multiple calls, trace persistence,
-offline previews and errors. CI requires no API credential. Fabricated responses
-are used in tests; the documentation example is a recorded API response.
+Covers config, key selection, the exact request sent, client cleanup, answers
+never leaking into the request, broken/multiple calls, trace writing, dry runs
+and errors. Tests use fake responses, so CI needs no key.
 
-If an editable installation fails to import `atb` on macOS, check whether the
-editable-install `.pth` file is marked hidden: Python skips hidden `.pth` files.
-A regular installation, `python -m pip install ".[dev,llm]"`, avoids this mechanism;
-reinstall after changing package source when using that installation mode.
+macOS gotcha: if `atb` can't be imported after `pip install -e`, check whether
+the editable install's `.pth` file is hidden (Python skips hidden `.pth` files).
+A normal `python -m pip install ".[dev,llm]"` avoids it, but then reinstall after
+each change.
 
-Protocol references: [NVIDIA function calling](https://docs.nvidia.com/nim/large-language-models/latest/function-calling.html)
-and the [official Python SDK](https://github.com/openai/openai-python).
+References: [NVIDIA function calling](https://docs.nvidia.com/nim/large-language-models/latest/function-calling.html),
+[OpenAI Python SDK](https://github.com/openai/openai-python).

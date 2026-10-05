@@ -1,40 +1,38 @@
 # AstroToolBench
 
-AstroToolBench is an open-source benchmark for evaluating reliable scientific
-**tool use by language models**. Version **0.1.0** provides deterministic orbital
-mechanics tools, 50 independently verified tasks, reproducible references and a
-validator that runs without a model, API key or GPU.
+A small benchmark for checking whether language models use **scientific tools**
+correctly, starting with orbital mechanics.
+
+v0.1.0 ships deterministic orbital-mechanics tools, 50 tasks with verified
+reference answers, and a validator that runs offline (no model, no API key, no GPU).
 
 ## Why?
 
-A model using numerical tools must choose a suitable calculation, supply valid
-arguments and units, preserve intermediate precision, and recognize physical or
-model limits. Plausible prose alone cannot establish correctness. AstroToolBench
-makes those behaviors testable with explicit inputs, answer contracts and
-scientific error budgets.
+When a model calls a numerical tool, a lot can go wrong: wrong function, wrong
+units, rounding an intermediate result, or happily computing something that is
+physically impossible. A nice-sounding answer doesn't tell you any of that. I
+wanted tasks where the answer is a number you can check, with a clear tolerance.
 
-## Why astrodynamics first?
+## Why astrodynamics?
 
-Orbital problems produce numerical answers that can be checked with analytic
-relations or independent integration. They combine propagation, maneuvers,
-eclipses and proximity searches into dependent calculations, with clear physical
-assumptions and useful boundary cases. This makes astrodynamics a practical first
-domain for testing scientific tool use.
+Orbital problems are a good fit: answers can be checked analytically or by
+integrating the equations of motion, the physics assumptions are well defined,
+and the tools chain together naturally (transfer → propagate → eclipse check).
+There are also plenty of edge cases to build trap questions from.
 
-## Where is this going?
+## Roadmap
 
 ```text
-Scientific benchmark → API design → LLM evaluation → post-training → GPU inference
+scientific benchmark → tool API design → LLM evaluation → post-training → GPU inference
 ```
 
-The v0.1 release establishes the scientific dataset and its reproducibility.
-Comparative model evaluation, fine-tuning, MCP, vLLM and CUDA experiments remain
-future work. Existing model integration experiments are documented separately
-below; their development tasks are excluded from official training partitions.
+v0.1 covers the first step: the dataset and making it reproducible. Model
+comparisons, fine-tuning, MCP, vLLM and CUDA work come later. The early model
+experiments I ran are described [further down](#model-experiments).
 
 ## Quick start
 
-Python **3.10 or later**, from the repository root:
+Needs Python 3.10+.
 
 ```bash
 git clone https://github.com/benplehn/AstroToolBench.git
@@ -48,12 +46,13 @@ python -m astrotoolbench.generate_references
 python -m astrotoolbench.validate
 ```
 
-On Windows, activate the environment with `.venv\Scripts\Activate.ps1`.
-The base package needs only NumPy and Pydantic; the `dev` extra installs pytest.
-Optional model-client and tokenizer tests are skipped when their dependencies
-or cached tokenizer are absent. Scientific tests and commands never call an LLM.
+(Windows: `.venv\Scripts\Activate.ps1`.)
 
-To verify existing artifacts without rewriting them:
+The base package only depends on NumPy and Pydantic. Tests that need the LLM
+client or a tokenizer are skipped if those extras aren't installed; the
+scientific tests never call a model.
+
+To check the committed files without rewriting anything:
 
 ```bash
 python -m astrotoolbench.generate_references --check
@@ -61,79 +60,73 @@ python -m astrotoolbench.benchmark.build --check
 python -m astrotoolbench.validate --json
 ```
 
-The validator exits **0** when all checks pass and **1** for dataset or artifact
-issues. Default validation covers the complete official corpus and its sources,
-partitions and scientific evidence. See the [validation guide](docs/validation.md)
-for custom paths, subset checks and machine-readable diagnostics.
+`validate` exits with 0 if everything passes, 1 otherwise. More options in the
+[validation guide](docs/validation.md).
 
-## What v0.1 contains
+## What's in v0.1
 
-| Item | Release contents |
+| | |
 | --- | --- |
-| Scientific areas | Propagation, ΔV, Hohmann transfer, eclipse geometry/duration, closest approach. |
-| Tasks | 50 across six categories and 22 descriptive families. |
-| Difficulty | 20 simple, 12 multistep, 8 diagnostic, 10 trap. |
-| Outcomes | 38 successful computations and 12 independently reproduced errors. |
-| Partitions | 24 train, 6 validation, 20 test; 11 reviewed family/composition groups. |
-| Ground truth | 33 analytic, 5 Cartesian RK4 and 12 independent input certificates. |
-| Contracts | Explicit units, frame, model assumptions, tolerances and error codes. |
+| Topics | Propagation, ΔV, Hohmann transfers, eclipses, closest approach |
+| Tasks | 50, in 6 categories and 22 families |
+| Difficulty | 20 simple, 12 multistep, 8 diagnostic, 10 trap |
+| Outcomes | 38 numerical answers, 12 expected errors |
+| Splits | 24 train / 6 validation / 20 test, split by family |
+| Reference checks | 33 analytic, 5 RK4 integration, 12 input checks |
 
-A diagnostic or trap can have a valid answer; its label does not automatically
-imply refusal. Numeric outputs have individual scoring tolerances and tighter
-verification budgets. Boolean results and error codes use exact comparison.
-The split policy keeps numerical variants together and permits primitive tool
-reuse in held-out compositions. It does not establish absence from external
-model pretraining data. See [the split policy](docs/data-splits.md).
+Trap and diagnostic tasks don't always mean "refuse": some have a valid answer.
+Each numerical output has its own tolerance; booleans and error codes must match
+exactly. Splits are done by problem family so that changing a radius doesn't
+leak a task into the test set (details in [data splits](docs/data-splits.md)).
+This obviously says nothing about what's in a model's pretraining data.
 
-## Data and tools
+## Layout
 
 ```text
-src/astrotoolbench/tools/       Deterministic scientific implementations
-src/astrotoolbench/benchmark/   Schema, loader, recipes and independent verification
-src/astrotoolbench/validate.py  Public validation command
-tasks/astrodynamics/            Answer-free sources, references and split manifest
-schemas/                       Exported JSON Schemas
-tests/tools/                   Scientific tool tests
-tests/benchmark/               Corpus, generation and reference regression tests
-tests/test_validation.py       Validator and CLI tests
-examples/                      Offline scientific workflows
-docs/                          Scientific contracts, evidence and release checklist
+src/astrotoolbench/tools/       scientific tools
+src/astrotoolbench/benchmark/   schema, loader, task definitions, verification
+src/astrotoolbench/validate.py  validation command
+tasks/astrodynamics/            task sources, references, split manifest
+schemas/                        JSON Schemas
+tests/                          tests (tools/, benchmark/, validator)
+examples/                       offline examples
+docs/                           documentation
 ```
 
-The generator reads `tasks/astrodynamics/specifications.jsonl`, calculates the
-answers and verifies them independently before publishing any output. It writes
-`tasks/astrodynamics/tasks.jsonl`, the split manifest and the
-[accuracy report](docs/reference-verification.json). It does not use existing
-expected numbers as computational input. The reviewed reference snapshots remain
-protected by regression tests.
+References are generated from `tasks/astrodynamics/specifications.jsonl`, which
+contains no answers. The generator computes each answer, checks it with an
+independent method (closed-form solution, RK4 or input checks) and only then
+writes `tasks/astrodynamics/tasks.jsonl`, the split manifest and the
+[verification report](docs/reference-verification.json).
 
-The production model is two-body orbital dynamics with a fixed-Sun cylindrical
-shadow. Distances are km, velocities km/s, time s and angles rad in an ECI frame
-for Earth tasks. Sampled event searches have explicit resolution limits; new
-families must provide suitable independent certificates.
+The physics model is two-body motion with a cylindrical Earth shadow and a
+fixed Sun direction. Units: km, km/s, s, rad, in an ECI frame.
 
 ```bash
 python examples/scientific_workflow.py
 ```
 
-[Tool contracts](docs/scientific-tools.md) · [Task format](docs/task-format.md) ·
-[Ground-truth evidence](docs/ground-truth.md) · [Reference generation](docs/reference-generation.md) ·
-[Problem families](docs/problem-families.md) · [Architecture](docs/architecture.md) ·
-[Release checklist](docs/release-v0.1.0.md)
+More docs: [tools](docs/scientific-tools.md) · [task format](docs/task-format.md) ·
+[ground truth](docs/ground-truth.md) · [reference generation](docs/reference-generation.md) ·
+[problem families](docs/problem-families.md) · [architecture](docs/architecture.md) ·
+[release notes](docs/release-v0.1.0.md)
 
-## Optional model experiments
+## Model experiments
 
-The existing `atb` package supports legacy A/B/C interface experiments and saved
-traces. Install `.[dev,llm]` for model-client tests and commands, or add `tokenizer`
-for local template inspection. `astrodyn_tools` imports remain compatible with
-the canonical scientific functions. The distribution name remains
-`astrodyn-tools`; the public scientific namespace is `astrotoolbench`.
+Before building the official dataset, I wrote a first prototype (`atb` package)
+that runs a model in a tool-calling loop against these tools, with three
+interface variants (A: no tools, B and C: two different tool schemas). It's
+still there and still tested. Install `.[dev,llm]` to use it, plus `tokenizer`
+for the chat-template experiments.
 
-See [model execution](docs/agent-execution.md), [completion inspection](docs/completion-inspection.md),
+The `astrodyn_tools` imports still work and point to the same functions. The
+package on disk is still called `astrodyn-tools`; the import name is
+`astrotoolbench`.
+
+See [running the agent](docs/agent-execution.md), [inspecting completions](docs/completion-inspection.md),
 [tokenizer inspection](docs/template-inspection.md) and the
-[historical integration report](docs/release-validation.md). The recorded five-task
-Lightning smoke test passed 4/5 numerical checks; it is a development integration
-check, not a result on the official held-out corpus.
+[first smoke test](docs/release-validation.md) (Nemotron 3.5 Lightning, 4/5 tasks
+passed). That was an integration test on a few dev tasks, not a benchmark result.
 
 ## License
 

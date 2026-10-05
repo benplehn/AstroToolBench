@@ -231,7 +231,7 @@ def problem_definitions() -> list[Problem]:
         Problem("trap-zero-gravity", "diagnostic", "invalid_parameters", "trap", "hohmann",
                 "Calculer ce transfert si les paramètres satisfont le contrat scientifique.",
                 transfer | {"mu": 0.0}, error="invalid_input", reason="Le paramètre gravitationnel doit être strictement positif."),
-        # Milestone 5: two meaningful limits bring the corpus to fifty problems.
+        # Two limit cases (equal radii, zero impulse) bring the corpus to fifty problems.
         Problem("hohmann-equal-radii", "maneuvers", "hohmann_transfer", "simple", "hohmann",
                 "Les rayons sont identiques. Utiliser la convention Hohmann du contrat: impulsions nulles et temps égal à une demi-période, pas zéro seconde.",
                 transfer | {"r2": 7000.0}, ("dv1", "dv2", "dv_total", "tof")),

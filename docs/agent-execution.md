@@ -1,45 +1,35 @@
-# Agent execution
+# Running the agent
 
-The bounded runner connects a model to AstroToolBench's numerical tools. It
-preserves the conversation, executes function requests and continues until a
-final response or an explicit stopping condition.
+The runner connects a model to the numerical tools: it keeps the conversation,
+executes the tool calls and stops when there's a final answer (or when
+something goes wrong).
 
 ## Usage
 
-Install `.[dev,llm]` and configure the provider as described in
-[completion inspection](completion-inspection.md). From the repository root:
+Install `.[dev,llm]` and set up your provider (see
+[completion inspection](completion-inspection.md)). Then from the repo root:
 
 ```bash
 atb-run --task multi-001 --api C --reasoning-budget 256 --timeout 120
 ```
 
-The default report prints the conversation in order: assistant responses, tool
-names, arguments and results, followed by status, tokens, latency, trace path and
-the numerical grade (`PASS` or `FAIL`). An incomplete run is explicitly marked
-`NOT EVALUATED`. Exit code 0 requires a completed conversation and a passing score.
-An incorrect final answer or any other terminal status produces exit code 1.
+It prints the conversation (model answers, tool calls with arguments and
+results), then status, tokens, latency, trace path and `PASS` / `FAIL`. If the
+run didn't finish, it shows `NOT EVALUATED`. Exit code is 0 only for a finished
+run with a correct answer.
 
-Use `--verbose` to include the initial system/user messages, call IDs that match
-each tool result to its request, per-request latency, token usage and finish
-reasons, and tool error categories. These reports are printed after execution;
-the trace file is saved after every turn by the runner.
+`--verbose` adds the system/user messages, call IDs, per-request latency, token
+usage, finish reasons and tool error types. `--json` prints a summary for
+scripts instead (can't be combined with `--verbose`). The full trace is saved
+either way. Missing token usage is shown as unknown.
 
 ```bash
 atb-run --task multi-001 --model nvidia/nemotron-3.5-lightning-30b-a3b --api C --verbose
 atb-run --task multi-001 --api C --json
-```
-
-`--json` retains the machine-readable summary for scripts. It is mutually
-exclusive with `--verbose`; the complete trace remains in the recorded JSON file
-regardless of the output mode. Missing provider token usage is shown as unknown.
-
-For the repository-local wrapper:
-
-```bash
 python scripts/run_agent.py --task multi-001 --api C --max-steps 8 --verbose
 ```
 
-The Python API returns a JSON-serializable trace:
+From Python:
 
 ```python
 from atb.agent import run_agent
@@ -52,162 +42,140 @@ trace = run_agent(task, settings.model, "C", max_steps=8, settings=settings)
 print(trace["status"], trace["final_answer"], trace["trace_path"])
 ```
 
-`run_agent()` itself does not grade answers. Reference scoring belongs to the
-caller; the CLI uses `atb.scoring.score` after a completed run.
+`run_agent()` doesn't score; the CLI calls `atb.scoring.score` after the run.
 
-For NVIDIA models that support it, `--reasoning-budget` limits reasoning tokens
-per request. The value is recorded in metadata and every request body. The
-default omits the field, leaving the provider's setting in effect; `-1` disables
-budget enforcement. This is separate from `--max-tokens`, which limits output,
-and `--timeout`, which limits how long the client waits.
+`--reasoning-budget` limits reasoning tokens per request on NVIDIA models that
+support it ([API reference](https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3-5-lightning-30b-a3b-infer)).
+By default the field isn't sent; `-1` disables the limit. It's different from
+`--max-tokens` (output limit) and `--timeout`. Other endpoints may ignore it.
+Use the same value when comparing B and C.
 
-The [Lightning API reference](https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3-5-lightning-30b-a3b-infer)
-documents this provider extension. Other compatible endpoints may not support it.
-Keep the same budget when comparing interface conditions.
+## Message flow
 
-## Message protocol
-
-A dependent two-tool conversation contains:
+For a two-step task:
 
 ```text
-system: shared scientific instructions and final JSON format
-user: benchmark prompt
-assistant: tool_calls=[Hohmann request, ID h]
-tool: tool_call_id=h, content=serialized transfer result
-assistant: tool_calls=[propagation request using the returned duration, ID p]
-tool: tool_call_id=p, content=serialized final state
+system: instructions + final JSON format
+user: task prompt
+assistant: tool_calls=[hohmann_transfer, id h]
+tool: tool_call_id=h, transfer result
+assistant: tool_calls=[propagate_orbit with the returned duration, id p]
+tool: tool_call_id=p, final state
 assistant: final JSON answer
 ```
 
-The runner keeps the assistant's calls and raw JSON argument strings, then
-appends one `role: "tool"` result per call. Multiple calls in one assistant
-response each receive a result before the next model request. Tool arguments
-must be JSON objects with finite numbers. Function dispatch is restricted to the
-existing numerical executor; arbitrary code is never evaluated.
+Assistant messages keep their tool calls and raw argument strings, and each call
+gets exactly one `tool` reply. Arguments must be JSON objects with finite
+numbers. Only the existing tool functions can be called.
 
-The runner validates JSON transport constraints. Numerical/domain checks remain
-in the executor; complete JSON Schema validation is not implemented here.
+The runner checks the JSON; numerical/domain checks happen in the executor.
+There's no full JSON Schema validation of the arguments yet.
 
-Outbound messages use standard Chat Completions fields. Provider extras are
-preserved in the raw response records. The model is given the same system
-instructions in A, B and C, including the Earth radius and gravitational
-parameter. Ground-truth answers, tolerances and expected tools are excluded.
+A, B and C all get the same system prompt (including Earth radius and μ). The
+model never sees the reference answer, tolerance or expected tools.
 
-## Conditions and budgets
+## Conditions and step budget
 
-| Condition | Tool definitions sent to the model |
+| Condition | Tools sent |
 | --- | --- |
-| A | `None`: both `tools` and `tool_choice` are omitted. |
-| B | `TOOLS_B`, dispatched through the B executor interface. |
-| C | `TOOLS_C`, dispatched through the C executor interface. |
+| A | none (`tools` and `tool_choice` are omitted) |
+| B | `TOOLS_B` |
+| C | `TOOLS_C` |
 
-`max_steps` counts model requests, including the request that returns the final
-answer. Two dependent tool requests normally need three model turns. The runner
-executes calls returned on the last allowed turn, preserves their results, and
-then stops without fabricating a final answer.
+`max_steps` counts model requests, including the last one. Two dependent tool
+calls usually take three requests. If the model asks for tools on the last
+allowed request, they're executed and saved, and the run stops without a final
+answer.
 
-CLI controls include `--model`, `--api`, `--max-steps`, `--max-tokens`, `--reasoning-budget`, `--timeout`,
-`--env-file`, `--results-dir`, `--run-id`, `--verbose` and `--json`. A caller can
-share a run ID across different task IDs. Existing task traces under that run ID
-are rejected before a new request is sent.
+Options: `--model`, `--api`, `--max-steps`, `--max-tokens`, `--reasoning-budget`,
+`--timeout`, `--env-file`, `--results-dir`, `--run-id`, `--verbose`, `--json`.
+Several tasks can share a run ID, but a task that already has a trace in that run
+is refused before any request.
 
-## Errors and terminal statuses
+## Statuses
 
 | Status | Meaning |
 | --- | --- |
-| `completed` | A non-empty final assistant response is available; score it separately. |
-| `max_steps_reached` | Request budget exhausted; `final_answer` remains null. |
-| `api_error` | Provider/network failure; prior messages and successful requests are retained. |
-| `protocol_error` | Missing/duplicate call IDs, calls in condition A, an empty choice list or another unusable response. |
-| `truncated` | Provider stopped at its output-token limit; partial tool requests are not executed. |
-| `content_filtered` | Provider stopped generation through its content filter. |
-| `provider_refusal` | Provider returned a refusal field without a usable final answer. |
+| `completed` | there's a final answer (scored separately) |
+| `max_steps_reached` | out of requests, no final answer |
+| `api_error` | network/provider error; everything before is kept |
+| `protocol_error` | missing/duplicate call IDs, tool calls in condition A, empty choices… |
+| `truncated` | hit the output token limit; partial tool calls aren't run |
+| `content_filtered` | stopped by the provider's content filter |
+| `provider_refusal` | refusal without a usable answer |
 
-Malformed JSON, unknown tools and execution failures produce tool-result error
-messages. These errors do not terminate the conversation by themselves. They are
-recorded in `tool_calls[].error_type`; the model can respond with a corrected
-request. Entire batches are checked for usable, unique IDs before dispatch.
+Bad JSON, unknown tools and tool failures don't stop the run: they're sent back
+as error results (and logged in `tool_calls[].error_type`) so the model can try
+again.
 
-## Agent trace
+## Trace file
 
-Each run is saved at `results/traces/<run_id>/<task_id>.json`. A trace is reserved
-before the first request and saved atomically after every turn. Configuration
-errors raise before execution. API failures and budget exhaustion return traces
-with explicit terminal statuses.
+Saved at `results/traces/<run_id>/<task_id>.json`, created before the first
+request and rewritten after each turn.
 
 | Field | Contents |
 | --- | --- |
-| `metadata` | Run/task identity, family, split, task hash, model, condition, provider, generation limits and runtime versions. |
-| `messages` | Ordered model/tool conversation, including the final response when available. |
-| `tools` | The selected schemas, or null for condition A. |
-| `steps` | Exact request bodies, raw SDK responses, usage and per-turn latency. |
-| `tool_calls` | IDs, names, raw arguments, result strings, error categories, turn indices and execution latency. |
-| `final_answer` | Final assistant text, or null when execution did not produce one. |
-| `tokens` | Aggregate prompt/completion/total tokens and `usage_complete`. Missing usage is reported as null, not zero. |
-| `step_count`, `tool_call_count` | Attempted model requests and handled tool requests, including error results. |
-| `latency_s` | Observed elapsed time for the loop, including tool execution and intermediate trace writes. |
-| `status`, `error` | Terminal state and sanitized diagnostics. |
+| `metadata` | run/task, family, split, task hash, model, condition, provider, limits, versions |
+| `messages` | the conversation |
+| `tools` | schemas sent (null for A) |
+| `steps` | each request body, raw response, usage, latency |
+| `tool_calls` | IDs, names, arguments, results, error types, turn, latency |
+| `final_answer` | final text or null |
+| `tokens` | totals + `usage_complete`; missing usage is null, not 0 |
+| `step_count`, `tool_call_count` | requests made, tool calls handled |
+| `latency_s` | total time, including tools and trace writes |
+| `status`, `error` | final status and cleaned-up error message |
 
-Credentials and authorization headers are excluded. Local traces are ignored by
-Git. Raw run artifacts include failures and development tasks; selecting training
-data requires separate quality checks and family-based separation from evaluation.
+No API keys or auth headers in traces. `results/` is gitignored.
 
-## Verification
+## Tests
 
 ```bash
 python -m pytest -q
 ```
 
-Offline tests use fabricated model responses and the real numerical executor.
-They verify dependent calls, parallel requests, error recovery, conditions A/B/C,
-budget exhaustion, protocol failures, missing usage, trace persistence and API
-error redaction. A hosted-model integration check is documented separately from
-these deterministic tests.
+The tests use fake model responses with the real tools: dependent calls,
+parallel calls, error recovery, A/B/C, step limit, protocol errors, missing
+usage, trace writing and error redaction.
 
-## Recorded hosted-model run
+## A real run
 
-On 2 October 2026, Nemotron 3 Super completed `multi-001` with condition C:
+On 2 October 2026, Nemotron 3 Super solved `multi-001` with condition C:
 
-| Measurement | Observed value |
+| | |
 | --- | --- |
-| Model requests | 3 |
-| Tool calls | 2, in successive assistant responses |
-| Tool sequence | `hohmann_transfer` → `propagate_orbit` |
-| Final x coordinate | −5368.7591375471 km |
-| Reference / original absolute tolerance | −5368.76 km / 5 km |
-| Numerical score | Correct |
-| Total reported tokens | 6110 |
-| Observed loop latency | Approximately 15.09 s |
+| Requests | 3 |
+| Tool calls | 2, one per response |
+| Sequence | `hohmann_transfer` → `propagate_orbit` |
+| Final x | −5368.7591375471 km |
+| Reference / tolerance at the time | −5368.76 km / 5 km |
+| Score | correct |
+| Tokens | 6110 |
+| Latency | ~15.09 s |
 
-The propagation call used the exact `transfer_time_s` returned by the first
-tool. The [recorded conversation](examples/nvidia-nemotron-agent.json) preserves
-the real requests, responses and numerical results; its local trace path has
-been normalized to a repository-relative path for publication.
+The model passed the exact `transfer_time_s` from the first tool to the second.
+The [recorded conversation](examples/nvidia-nemotron-agent.json) is the real
+one; I only made the trace path relative.
 
-The prompt specifies the ECI initial state and explicitly propagates the original
-orbit without applying transfer burns. This removes a prior ambiguity about
-which state to propagate. The reference remains unchanged. This is a single
-development-task integration check, not a comparative benchmark result.
+I had to clarify the prompt for this task: it now gives the ECI initial state
+and says explicitly to propagate the original orbit without the transfer burns.
+The reference didn't change. One task, so not a benchmark result.
 
-## Numerical tolerance and intermediate precision
+## Tolerance and rounding
 
-The current `multi-001` acceptance criterion is an absolute x-coordinate error
-of at most **0.1 km**. Its reference is stored to 0.01 km precision. This criterion
-checks consistency within the project's two-body model; it is not a claim about
-real-world orbit prediction accuracy.
+`multi-001` now accepts an x error of at most **0.1 km** (reference stored to
+0.01 km). This is about consistency with the two-body model, not real-world
+orbit prediction.
 
-Truncating the transfer duration from 3560.540788789012 s to 3560 s changes the
-final x coordinate to approximately −5371.376840 km: an error of **2.616840 km**
-against the reference. The full position difference is approximately 4.080821 km,
-but this task scores x only. The original 5 km criterion would accept this error;
-the tightened 0.1 km criterion rejects it. Tests cover both truncated and
-nearest-second durations, as well as the exact chain and the recorded answer.
+Why I tightened it: if the transfer time is truncated from 3560.540788789012 s to
+3560 s, x becomes about −5371.376840 km, i.e. **2.62 km** off (about 4.08 km in
+full position, but only x is scored). The old 5 km tolerance would have accepted
+that. With 0.1 km it fails, which is what I want. Tests cover truncated,
+rounded and exact durations, plus the recorded answer.
 
-The recorded NVIDIA answer also passes the tightened criterion. The record keeps
-its original task fingerprint and the table above reports the original tolerance;
-this is a re-evaluation of an existing answer, without another model request.
+The recorded NVIDIA answer passes the new tolerance too (just rescored, no new
+request). The table above shows the tolerance in place at the time.
 
-The model's radius-to-altitude conversion in condition C is another potential
-error source: 7000 km and 9000 km become 621.863 km and 2621.863 km using the stated
-Earth radius. Keep such tasks when classifying unit and parameter-convention
-errors in future A/B/C comparisons.
+In condition C the model also has to convert radii to altitudes (7000 and
+9000 km → 621.863 and 2621.863 km), which is another source of error worth
+tracking when comparing A/B/C.

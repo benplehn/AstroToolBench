@@ -2,26 +2,23 @@
 
 ## 0.1.0 — 2026-10-05
 
-First reproducible scientific benchmark release.
+First real release of the benchmark.
 
-- Stabilized propagation, ΔV, Hohmann transfer, cylindrical shadow/eclipse and
-  closest-approach tools with explicit scientific contracts and input validation.
-- Added 50 versioned tasks across six categories and 22 descriptive families,
-  with a 20/12/8/10 difficulty mix and 24/6/20 family-based partitions.
-- Added answer-free source records, strict JSON Schemas and a reviewed split
-  registry that rejects cross-partition numerical variants and duplicates.
-- Added independent analytic, Cartesian RK4 and input-contract verification for
-  all 38 successful computations and 12 expected error outcomes.
-- Added `python -m astrotoolbench.generate_references` and
-  `python -m astrotoolbench.validate`, deterministic artifacts and diagnostics.
-- Added scientific, dataset and validator regression tests plus scientific CI
-  on Python 3.10 and 3.12 without optional LLM dependencies.
-- Restricted default pytest discovery to `tests/`, so installing only `.[dev]`
-  does not collect optional live-model experiment scripts.
-- Organized scientific code under `astrotoolbench`, retained `astrodyn_tools`
-  compatibility imports, and included data, schemas, examples and MIT licensing
-  in source distributions.
-- Documented reproducibility, assumptions, tolerances and contamination scope.
+- Cleaned up the propagation, ΔV, Hohmann, eclipse and closest-approach tools,
+  with input validation and documented units/assumptions.
+- 50 tasks (6 categories, 22 families), 20/12/8/10 difficulty mix,
+  24/6/20 train/validation/test split by family.
+- Task sources without answers, JSON Schemas, and a split registry that refuses
+  duplicates or near-duplicates across splits.
+- Every reference answer is checked by a second method (analytic, RK4 or input
+  checks), including the 12 tasks where the correct answer is an error.
+- New commands: `python -m astrotoolbench.generate_references` and
+  `python -m astrotoolbench.validate`.
+- Tests for tools, dataset and validator; CI on Python 3.10 and 3.12 without
+  the LLM dependencies.
+- pytest only collects `tests/`, so `.[dev]` alone is enough.
+- Moved the scientific code to `astrotoolbench` (old `astrodyn_tools` imports
+  still work). Data, schemas, examples and license are included in the sdist.
 
-The existing legacy model integration and development traces remain available.
-This release makes no comparative LLM-quality, fine-tuning or GPU-performance claim.
+The first agent prototype (`atb`) and its traces are kept as they were. No model
+comparison, fine-tuning or GPU results in this release.

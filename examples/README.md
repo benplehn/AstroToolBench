@@ -1,6 +1,6 @@
-# Offline scientific examples
+# Examples
 
-Install the package from the repository root and run:
+From the repo root:
 
 ```bash
 python -m pip install ".[dev]"
@@ -8,13 +8,12 @@ python examples/scientific_workflow.py
 python -m astrotoolbench.validate
 ```
 
-`scientific_workflow.py` raises a circular orbit from 7000 km to 14000 km. It
-applies the departure impulse, propagates the transfer ellipse for half its
-period, then evaluates the arrival shadow. Its JSON output names units explicitly.
-The Sun points along +x; arrival is near −x and inside the cylindrical shadow.
-All calculations are local and require no API key.
+`scientific_workflow.py` raises a circular orbit from 7000 km to 14000 km: it
+applies the departure burn, propagates half the transfer ellipse and checks
+whether the arrival point is in Earth's shadow. With the Sun along +x, arrival
+is near −x, so it is. Output is JSON with units. Everything runs locally.
 
-Load only the intended official partition when inspecting the corpus:
+Loading one split of the dataset:
 
 ```python
 from astrotoolbench.benchmark import load_benchmark
@@ -24,5 +23,4 @@ for task in tasks:
     print(task.id, task.family, task.expected.kind)
 ```
 
-The [validator guide](../docs/validation.md) covers machine-readable reports,
-custom datasets, independently checked errors and publication coverage.
+More in the [validation guide](../docs/validation.md).

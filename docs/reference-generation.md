@@ -1,48 +1,44 @@
-# Reproducible references — milestone 7
+# Generating references
 
-From the repository root, with base dependencies installed:
+From the repo root (base install is enough):
 
 ```bash
 python -m astrotoolbench.generate_references
 python -m astrotoolbench.generate_references --check
 ```
 
-The public command calls `astrotoolbench.benchmark.generation`. It imports no
-model client and needs no API keys or optional LLM
-packages.
+No LLM client, no API key.
 
-## Source and outputs
+## Files
 
-| Artifact | Purpose |
+| File | What it is |
 | --- | --- |
-| `tasks/astrodynamics/specifications.jsonl` | Input task records with scientific parameters, units, metadata, splits, selected outputs and answer contracts. Successful contracts contain **no numerical or Boolean reference values**. |
-| `schemas/task-spec-v0.1.schema.json` | Machine-readable authoring format; injected result values are rejected. |
-| `tasks/astrodynamics/tasks.jsonl` | Official task records with generated `expected` values, full precision and individual tolerances. |
-| `tasks/astrodynamics/splits.json` | Reviewed family/group policy and task IDs in each partition. |
-| `docs/reference-verification.json` | Source/dataset SHA-256, counts, split audit and per-task independent numerical error budgets/observations. |
+| `tasks/astrodynamics/specifications.jsonl` | input: tasks with parameters, units, split, outputs and answer contract, **no answers** |
+| `schemas/task-spec-v0.1.schema.json` | schema for the above; rejects any answer value |
+| `tasks/astrodynamics/tasks.jsonl` | output: tasks with computed `expected` values and tolerances |
+| `tasks/astrodynamics/splits.json` | split manifest |
+| `docs/reference-verification.json` | hashes, counts, split checks and per-task verification errors |
 
-Expected error codes and their rationale are authored contracts, not numerical
-references. The generator independently reproduces those errors too. A solver
-crash or failure to converge cannot silently become an expected diagnostic result.
+For error tasks, the expected error code and its reason are written by hand in
+the spec, but the generator still has to reproduce that error independently. A
+crash or a solver that doesn't converge can't silently turn into an "expected
+error".
 
-The command:
+What it does:
 
-1. Loads and validates the entire specification file, including IDs and family splits.
-2. Calls the deterministic scientific recipe for each successful computation.
-3. Materializes a strict official record with the calculated outputs and their contracts.
-4. Checks the record against an independent analytic, Cartesian RK4 or input-policy
-   certificate; reports all per-task computational failures.
-5. Rechecks split integrity and builds the accuracy report/manifest.
-6. Publishes outputs only after every task succeeds in verification.
+1. Load and validate the whole spec file (IDs, families, splits).
+2. Run the recipe for each task.
+3. Build the full task record with the computed outputs.
+4. Check it against the independent method (analytic, RK4 or input checks).
+5. Check the splits again and build the report and manifest.
+6. Write files only if every task passed.
 
-It never reads existing `expected` numbers as its computational input, and never
-rebuilds task templates behind the user's back. A changed specification is actually
-recomputed. Each output file is replaced atomically after all temporary files are
-prepared. Multi-file replacement is not a filesystem transaction: the recorded
-hashes detect an incomplete update. A scientific failure leaves existing outputs
-untouched.
+It never uses existing `expected` values as input. Each file is written to a temp
+file and swapped in atomically. Writing several files isn't a real transaction,
+but the hashes in the report would show a half-finished update. If any task
+fails, nothing is overwritten.
 
-## Controls
+## Options
 
 ```bash
 python -m astrotoolbench.generate_references \
@@ -52,27 +48,21 @@ python -m astrotoolbench.generate_references \
   --splits tasks/astrodynamics/splits.json
 ```
 
-All four paths must be distinct. Custom source files may contain a subset of
-reviewed families for development; generating that subset does not certify it as
-a complete v0.1 corpus. The official authoring command enforces the publication
-size, coverage and difficulty targets.
+The four paths must be different. You can run it on a subset of families while
+developing, but that doesn't make it a complete v0.1 dataset (the build command
+checks size and coverage).
 
-`--check` compares exact deterministic regeneration with the existing dataset,
-manifest and report and writes nothing. It exits with code 1 for missing/different
-artifacts, malformed sources, unreviewed partitions or failed scientific checks.
-The normal command also exits with code 1 on failure and prints task/file diagnostics
-to stderr. Declared and independently reproduced scientific errors count as valid
-benchmark records.
+`--check` regenerates in memory, compares with the files on disk and writes
+nothing. Exit 1 if anything differs or fails; errors go to stderr. Expected
+errors that are correctly reproduced count as valid tasks.
 
-Generated artifacts have stable ordering and no timestamps, random seeds, machine
-paths or credentials. Exact byte comparison is intended for regeneration in the
-same numerical environment. Cross-platform numerical checks use the independent
-scientific error budgets, not assumed bit-identical floating-point arithmetic.
+Output is stable: sorted, no timestamps, no random seeds, no local paths. Byte
+comparison only makes sense on the same numerical setup; across machines, use
+the validator's error budgets.
 
-## Authoring and review
+## Changing tasks
 
-`astrotoolbench.benchmark.families` contains the authored problem definitions. After an
-intentional input/contract/family change:
+Task definitions are in `astrotoolbench.benchmark.families`. After changing one:
 
 ```bash
 python -m astrotoolbench.benchmark.build
@@ -81,13 +71,11 @@ python -m astrotoolbench.validate
 python -m pytest -q
 ```
 
-The authoring command regenerates the answer-free specifications, both schemas,
-manifest and independently verified references. It requires at least 40 tasks,
-all six categories, at least five families and all four difficulties. Difficulty
-shares may deviate by at most five percentage points from 40/25/15/20.
+`build` regenerates specs, both schemas, the manifest and the references. It
+requires at least 40 tasks, all 6 categories, 5 families and 4 difficulties,
+with each difficulty within 5 points of 40/25/15/20 %.
 
-The reference snapshot test requires an explicit review when expected values
-change. Milestone 5 adds equal-radius Hohmann and zero-impulse cases; the numerical
-reference digest of the preceding 48 tasks is retained as a separate regression
-check. The current complete corpus has 50 tasks, 38 numerical/categorical successes
-and 12 verified errors.
+A snapshot test fails if any expected value changes, so you have to update it
+deliberately. When I added the equal-radius Hohmann and zero-ΔV tasks, I kept
+the digest of the 48 earlier tasks as a separate check. Current total: 50 tasks,
+38 answers, 12 expected errors.

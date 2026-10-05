@@ -1,116 +1,99 @@
-# Integration validation
+# First smoke test (Nemotron 3.5 Lightning)
 
-This is the historical week-end 1 development integration report. The official
-50-task scientific release is described in [the v0.1.0 checklist](release-v0.1.0.md).
-The task counts and live model results below refer to the legacy development data.
+This is the integration test I ran on the `atb` agent prototype on 3 October
+2026, before building the official 50-task dataset. The tasks here come from the
+older development set (`benchmark/tasks.jsonl`), not from v0.1.0.
 
-Validated on 3 October 2026 with Python 3.12.13. The local suite passed **116
-tests**, including numerical checks, tool-call protocol failures, CLI output and
-cached-tokenizer rendering. Dependency consistency, source compilation and the
-offline request preview also passed.
+At that point the test suite had 116 tests (Python 3.12.13).
 
-## Five-task live check
+## Setup
 
-The task selection covers period, transfer, eclipse, a dependent calculation and
-a physically invalid request. It was fixed before execution. All five tasks use
-the same model, condition and generation settings:
+Five tasks picked in advance: an orbital period, a Hohmann transfer, an
+eclipse, a two-step calculation and a physically impossible request.
 
 | Setting | Value |
 | --- | --- |
-| Provider | NVIDIA API Catalog, `https://integrate.api.nvidia.com/v1` |
+| Provider | NVIDIA API Catalog (`https://integrate.api.nvidia.com/v1`) |
 | Model | `nvidia/nemotron-3.5-lightning-30b-a3b` |
 | Interface | C |
 | Temperature | 0 |
-| Maximum model requests per task | 8 |
-| Output-token limit per request | 4096 |
-| Reasoning budget per request | 256 |
-| Client timeout per request | 120 s |
-| Automatic SDK retries | 0 |
-| Run | `20261003T125148Z-smoke-aefe03` |
+| Max requests per task | 8 |
+| Max output tokens | 4096 |
+| Reasoning budget | 256 |
+| Timeout | 120 s |
+| SDK retries | 0 |
+| Run ID | `20261003T125148Z-smoke-aefe03` |
 
-Reproduce from the checkout with a configured `.env`:
+To rerun it (needs a `.env` with an API key):
 
 ```bash
 python scripts/smoke_test.py --model nvidia/nemotron-3.5-lightning-30b-a3b \
   --api C --reasoning-budget 256 --timeout 120
 ```
 
-Hosted responses and latency can vary even at temperature zero. The
-[summary](examples/nvidia-lightning-smoke.json) links all five full traces and
-records their SHA-256 hashes. Only local trace paths were normalized for publication.
+Results can change between runs even at temperature 0. The
+[summary](examples/nvidia-lightning-smoke.json) links the five full traces with
+their SHA-256 (I only replaced local paths with relative ones).
 
-| Task | Numerical score | Requests / tools | Reported total tokens | Latency |
+## Results
+
+| Task | Result | Requests / tool calls | Tokens | Latency |
 | --- | --- | ---: | ---: | ---: |
 | `period-001` | Pass: 5553.624271252228 s | 2 / 1 | 3443 | 9.89 s |
 | `hoh-001` | Fail: no final `answer` object | 2 / 1 | 3684 | 4.42 s |
 | `ecl-001` | Pass: 2297.9669189453125 s | 2 / 1 | 3605 | 6.70 s |
 | `multi-001` | Pass: −5368.7591375471 km | 3 / 2 | 6103 | 62.82 s |
-| `trap-001` | Pass: physically invalid altitude refused | 1 / 0 | 1601 | 9.85 s |
+| `trap-001` | Pass: refused the impossible altitude | 1 / 0 | 1601 | 9.85 s |
 
-**Result: 4/5 numerical checks passed; 3/5 responses were standalone final JSON
-objects.** Every request received a response in this final run, and no numerical
-tool reported an execution error. The script correctly returned exit code 1
-because Hohmann failed.
+**4/5 correct numbers, but only 3/5 answers were clean standalone JSON.** No
+tool errors. The script exits with 1 because of the Hohmann failure.
 
-The Hohmann tool returned the correct delta-v, but the model's final response
-repeated input arguments in a code block instead of answering the task. This is
-a model output failure; the runner retained it and the scorer rejected it.
-The eclipse response contained an extra closing brace after its answer object.
-It passed the numerical scorer, which extracts a JSON answer from surrounding
-text, but failed the separate standalone-JSON check. Numerical correctness and
-format compliance should remain separate metrics in future evaluations.
+- **Hohmann:** the tool returned the right ΔV, but the model then just repeated
+  the tool arguments in a code block instead of answering. Counted as a fail.
+- **Eclipse:** correct value, but with an extra `}` after the JSON. The scorer
+  still finds the answer, so it passes numerically but not on format. I think
+  format and correctness should be two separate metrics.
+- **Two-step task:** the model passed the full-precision transfer time
+  (3560.540788789012 s) from `hohmann_transfer` into `propagate_orbit`. The x error
+  is about 0.000862 km, well inside the 0.1 km tolerance. There's a regression
+  test showing that rounding that time to whole seconds would fail.
 
-The dependent task called `hohmann_transfer`, then passed its full-precision
-duration, 3560.540788789012 s, to `propagate_orbit`. Its x-coordinate error against
-the rounded reference is approximately 0.000862 km, within the **0.1 km** tolerance.
-Rounding the intermediate duration to whole seconds is rejected by regression tests.
+## What went wrong before that
 
-## Earlier attempts and fixes
+All earlier attempts are in the [attempt log](examples/smoke-attempts.json). I
+don't merge them with the result above.
 
-Earlier outcomes are retained in the [attempt ledger](examples/smoke-attempts.json).
-They are not pooled with the final five-task result:
+- My default model at first, Nemotron 3 Super, started returning HTTP 410. A Nano
+  model ID from the `/models` list gave 404. I switched to Lightning by hand; the
+  runner never switches models on its own. Old Super traces keep their model name.
+- First Lightning run: 3/5, with timeouts at 60 s on the eclipse and two-step
+  tasks. Retrying eclipse worked; the two-step task still timed out at 120 s.
+- With the 256-token reasoning budget, a full run first scored 1/5. Looking at
+  the two-step answer I found a bug in my parser: it picked up a JSON block with
+  tool arguments instead of the final answer that came after it. Fixed it to take
+  the last answer object. Rescoring the same run gives 2/5 (no new API call).
+- I then made the system prompt clearer: final answer must be a standalone JSON
+  object, and keep full precision between steps. The final run above uses this
+  prompt, so it's a different setup from the earlier ones.
 
-- The former default, Nemotron 3 Super, returned HTTP 410. A Nano ID from provider
-  discovery returned HTTP 404. Lightning was then verified and selected explicitly;
-  there is no automatic model fallback within a run. Historical Super examples
-  keep their original model identity and requests.
-- Lightning's first five-task run passed 3/5, with eclipse and dependent-task
-  timeouts at 60 s. An explicit eclipse retry passed; the dependent task still
-  timed out at 120 s. Missing usage is recorded as unknown.
-- A complete run with a 256-token reasoning budget originally scored 1/5.
-  Reviewing its dependent-task answer exposed a parser bug: an earlier fenced
-  tool-arguments object took precedence over a later valid answer. The corrected
-  parser selects the last answer/refusal object regardless of Markdown wrapping.
-  Re-scoring that existing run gives 2/5; this does not represent a new request.
-- The shared A/B/C system instruction now explicitly requires a standalone JSON
-  final response and preservation of intermediate precision. The final complete
-  run above uses this instruction, so it is a separate validation configuration.
-  Hohmann's remaining failure is reported rather than converted into a pass.
+The reasoning budget is sent with every request. See the
+[NVIDIA API reference](https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3-5-lightning-30b-a3b-infer).
+I haven't tried to find the best value; a small budget may hurt answers.
 
-The optional reasoning setting is sent and recorded at every turn. See the
-[NVIDIA API reference](https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3-5-lightning-30b-a3b-infer)
-for its provider-specific semantics. An explicit small budget can affect answer
-quality; these runs do not establish its optimal value.
+## Notes
 
-## Experimental limits and observations
+Five dev tasks is an integration check, not a model evaluation. All 24 tasks of
+this old dataset are dev-only and are never used as training data.
 
-These five development tasks validate integration, not comparative model quality.
-All 24 tasks in this historical dataset belong to the development split. They
-remain excluded from official training exports. The official scientific corpus
-now has a [reviewed family/composition split](data-splits.md); comparative held-out
-model evaluation and external data provenance review remain future work.
+In interface C, the model has to convert radii to altitudes for some tasks,
+which is one more place to make mistakes. B and C differ in more than just the
+descriptions (input conventions, schema constraints), so a proper comparison
+will need the same model and settings.
 
-Condition C requires the model to convert radii into altitudes for some tasks.
-That conversion is a potential failure source and part of the interface treatment.
-B/C differences include input conventions and schema constraints as well as
-descriptions; their future comparison must hold model and settings constant.
+The token numbers I measured (C costs 375 more prompt tokens than B; C's
+descriptions alone cost 407) come from the Qwen tokenizer, not Nemotron, so they
+are not NVIDIA billing numbers. Since tool schemas are resent on each request,
+that overhead adds up over a conversation. Details in
+[tokenizer inspection](template-inspection.md).
 
-The tokenizer experiment uses Qwen, while the recorded API conversation uses
-Nemotron. Its **375-token C-versus-B prompt difference** and **407-token cost of
-C description fields** describe the pinned Qwen template and historical initial
-messages. They are not NVIDIA billing estimates. Schemas are resent at every
-request, so their token overhead recurs throughout a tool-use conversation.
-See [tokenizer inspection](template-inspection.md) for the measurement method.
-
-Credentials remain local; the published records contain no API keys or personal
-filesystem paths.
+No API keys or personal paths are in the published files.
