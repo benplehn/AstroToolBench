@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from astrodyn_tools import MU_EARTH, closest_approach, coe_to_rv, orbital_period
+from astrotoolbench.tools import MU_EARTH, closest_approach, coe_to_rv, orbital_period
 
 
 def crossing_states(meeting_time, mu=MU_EARTH):

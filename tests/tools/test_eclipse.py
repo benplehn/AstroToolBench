@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from astrodyn_tools import (
+from astrotoolbench.tools import (
     MU_EARTH, R_EARTH, coe_to_rv, eclipse_windows, in_cylindrical_shadow, orbital_period,
 )
 

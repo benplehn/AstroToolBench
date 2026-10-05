@@ -1,6 +1,6 @@
 # Scientific tools — milestone 1
 
-The deterministic scientific backend lives in `src/astrodyn_tools`. Importing and
+The deterministic scientific backend lives in `src/astrotoolbench/tools`. Importing and
 using it requires NumPy only: no credentials, model provider or network access.
 This milestone stabilizes the five core operations and their contracts. Dataset
 expansion, task-schema changes, reference generation and release work belong to
@@ -99,7 +99,7 @@ orbits. These limiting conventions are numerical approximations at that threshol
 
 ```python
 import numpy as np
-from astrodyn_tools import (
+from astrotoolbench.tools import (
     MU_EARTH, closest_approach, delta_v, eclipse_windows,
     hohmann_transfer, propagate_kepler,
 )

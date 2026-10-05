@@ -1,0 +1,702 @@
+{
+  "categories": {
+    "diagnostic": 9,
+    "eclipse": 8,
+    "maneuvers": 9,
+    "multistep": 8,
+    "propagation": 8,
+    "proximity": 8
+  },
+  "dataset_sha256": "6aa85b2d61a9bf830389ea2e714e62ebad7ff97d0cdb4186730a1db9439ee1a2",
+  "difficulties": {
+    "diagnostic": 8,
+    "multistep": 12,
+    "simple": 20,
+    "trap": 10
+  },
+  "outcomes": {
+    "error": 12,
+    "success": 38
+  },
+  "source_sha256": "e1c11c16138d13282d28f8d54eb4c743304ea36efc0fc203b3c78460bf779a22",
+  "split_audit": {
+    "cross_split_family_overlaps": 0,
+    "cross_split_problem_duplicates": 0,
+    "cross_split_successful_recipe_overlaps": 0,
+    "groups": {
+      "circular_transfers": {
+        "families": [
+          "hohmann_transfer",
+          "transfer_comparison"
+        ],
+        "rationale": "Raising, lowering, equal radii and comparisons reuse the Hohmann solution.",
+        "split": "train"
+      },
+      "closest_approach": {
+        "families": [
+          "closest_approach"
+        ],
+        "rationale": "A minimum over time is held out from instantaneous-separation questions.",
+        "split": "test"
+      },
+      "cylindrical_shadow": {
+        "families": [
+          "eclipse_detection",
+          "eclipse_duration"
+        ],
+        "rationale": "Instantaneous geometry and sampled intervals share the same shadow model.",
+        "split": "train"
+      },
+      "impulsive_maneuvers": {
+        "families": [
+          "velocity_impulse",
+          "circularization"
+        ],
+        "rationale": "Vector impulses and local circularization share the velocity-change computation.",
+        "split": "train"
+      },
+      "input_contract": {
+        "families": [
+          "missing_information",
+          "invalid_search",
+          "invalid_parameters"
+        ],
+        "rationale": "Missing information, invalid observation intervals and nonpositive gravity are development diagnostics.",
+        "split": "validation"
+      },
+      "kepler_propagation": {
+        "families": [
+          "kepler_circular",
+          "kepler_elliptic"
+        ],
+        "rationale": "Circular and elliptic states use the same complete Kepler propagation operation.",
+        "split": "train"
+      },
+      "model_limits": {
+        "families": [
+          "unsupported_physics",
+          "precision_contract"
+        ],
+        "rationale": "Unavailable perturbation physics and unattainable event guarantees are held-out model-limit diagnoses.",
+        "split": "test"
+      },
+      "orbital_geometry": {
+        "families": [
+          "invalid_geometry",
+          "unsupported_orbit"
+        ],
+        "rationale": "Body intersection, undefined shadow geometry and unbound orbital states are held-out physical diagnoses.",
+        "split": "test"
+      },
+      "state_separation": {
+        "families": [
+          "kepler_comparison",
+          "separation_at_epoch"
+        ],
+        "rationale": "Both labels compute two propagated positions and their simultaneous separation.",
+        "split": "validation"
+      },
+      "transfer_composition": {
+        "families": [
+          "transfer_then_propagation",
+          "transfer_then_eclipse",
+          "transfer_arrival_eclipse"
+        ],
+        "rationale": "Dependent transfer/propagation/shadow workflows are held out as complete compositions.",
+        "split": "test"
+      },
+      "unit_contract": {
+        "families": [
+          "invalid_units"
+        ],
+        "rationale": "Mixed position/velocity units are the same dimensional-consistency failure.",
+        "split": "train"
+      }
+    },
+    "policy_version": "1",
+    "scope": "Primitive tool reuse inside held-out compositions is intentional. Legacy development data is excluded from training. External pretraining contamination is not assessed.",
+    "splits": {
+      "test": [
+        "diagnostic-j2-request",
+        "eclipse-zero-sun-direction",
+        "multi-arrival-illuminated",
+        "multi-arrival-in-shadow",
+        "multi-transfer-eclipse-day-start",
+        "multi-transfer-eclipse-lowering",
+        "multi-transfer-eclipse-night-start",
+        "multi-transfer-propagate-circle",
+        "multi-transfer-propagate-ellipse",
+        "multi-transfer-propagate-lowering",
+        "prop-unbound-state",
+        "proximity-constant-separation",
+        "proximity-end-boundary",
+        "proximity-identical-trajectories",
+        "proximity-interior-crossing",
+        "proximity-start-boundary",
+        "proximity-zero-window",
+        "trap-body-intersecting-ellipse",
+        "trap-unachievable-time-precision",
+        "trap-underground-transfer"
+      ],
+      "train": [
+        "diagnostic-zero-impulse",
+        "dv-circularize-apogee",
+        "dv-circularize-periapsis",
+        "dv-mixed-units",
+        "dv-reversal",
+        "dv-vector-turn",
+        "eclipse-clipped-window",
+        "eclipse-dawn-dusk",
+        "eclipse-one-period",
+        "eclipse-two-periods",
+        "eclipse-zero-window",
+        "hohmann-compare-targets",
+        "hohmann-equal-radii",
+        "hohmann-lowering",
+        "hohmann-raising",
+        "prop-backward",
+        "prop-circular-quarter",
+        "prop-elliptic-arbitrary",
+        "prop-inclined-full-period",
+        "prop-periapsis-apogee",
+        "prop-zero-duration",
+        "shadow-day-side",
+        "shadow-night-side",
+        "trap-meters-as-kilometers"
+      ],
+      "validation": [
+        "diagnostic-missing-state",
+        "prop-compare-two-states",
+        "proximity-instant",
+        "proximity-negative-window",
+        "trap-negative-observation-duration",
+        "trap-zero-gravity"
+      ]
+    },
+    "strategy": "reviewed_family_and_complete_computation_groups"
+  },
+  "split_counts": {
+    "test": 20,
+    "train": 24,
+    "validation": 6
+  },
+  "task_count": 50,
+  "tasks": [
+    {
+      "absolute_error_budgets": {
+        "position": 5e-05,
+        "velocity": 5e-08
+      },
+      "id": "prop-circular-quarter",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "position": 4.6629367034256575e-12,
+        "velocity": 4.085072839087281e-15
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "position": 5e-05,
+        "velocity": 5e-08
+      },
+      "id": "prop-backward",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "position": 1.7145055188062945e-12,
+        "velocity": 9.066415760369074e-16
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "position": 5e-05,
+        "velocity": 5e-08
+      },
+      "id": "prop-periapsis-apogee",
+      "method": "cartesian_rk4",
+      "observed_absolute_errors": {
+        "position": 7.84027296033373e-09,
+        "velocity": 3.213616419743208e-12
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "position": 5e-05,
+        "velocity": 5e-08
+      },
+      "id": "prop-elliptic-arbitrary",
+      "method": "cartesian_rk4",
+      "observed_absolute_errors": {
+        "position": 9.094947017729282e-12,
+        "velocity": 1.021405182655144e-14
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "position": 5e-05,
+        "velocity": 5e-08
+      },
+      "id": "prop-inclined-full-period",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "position": 6.153194326569214e-12,
+        "velocity": 9.246719184063654e-15
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "position": 5e-05,
+        "velocity": 5e-08
+      },
+      "id": "prop-zero-duration",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "position": 0.0,
+        "velocity": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "distance": 1e-07
+      },
+      "id": "prop-compare-two-states",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "distance": 4.547473508864641e-13
+      }
+    },
+    {
+      "absolute_error_budgets": {},
+      "id": "prop-unbound-state",
+      "method": "independent_input_check",
+      "observed_absolute_errors": {}
+    },
+    {
+      "absolute_error_budgets": {
+        "delta_v": 1e-10
+      },
+      "id": "dv-vector-turn",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "delta_v": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "delta_v": 1e-10
+      },
+      "id": "dv-reversal",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "delta_v": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "dv1": 1e-10,
+        "dv2": 1e-10,
+        "dv_total": 1e-10,
+        "tof": 1e-08
+      },
+      "id": "hohmann-raising",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "dv1": 0.0,
+        "dv2": 8.881784197001252e-16,
+        "dv_total": 8.881784197001252e-16,
+        "tof": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "dv1": 1e-10,
+        "dv2": 1e-10,
+        "dv_total": 1e-10,
+        "tof": 1e-08
+      },
+      "id": "hohmann-lowering",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "dv1": 0.0,
+        "dv2": 0.0,
+        "dv_total": 0.0,
+        "tof": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "difference": 1e-10,
+        "dv_a": 1e-10,
+        "dv_b": 1e-10
+      },
+      "id": "hohmann-compare-targets",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "difference": 8.881784197001252e-16,
+        "dv_a": 8.881784197001252e-16,
+        "dv_b": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "delta_v": 1e-10
+      },
+      "id": "dv-circularize-periapsis",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "delta_v": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "delta_v": 1e-10
+      },
+      "id": "dv-circularize-apogee",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "delta_v": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {},
+      "id": "dv-mixed-units",
+      "method": "independent_input_check",
+      "observed_absolute_errors": {}
+    },
+    {
+      "absolute_error_budgets": {},
+      "id": "shadow-day-side",
+      "method": "analytic",
+      "observed_absolute_errors": {}
+    },
+    {
+      "absolute_error_budgets": {},
+      "id": "shadow-night-side",
+      "method": "analytic",
+      "observed_absolute_errors": {}
+    },
+    {
+      "absolute_error_budgets": {
+        "boundaries": 5e-06,
+        "total_duration": 5e-06
+      },
+      "id": "eclipse-one-period",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "boundaries": 2.6501766114961356e-07,
+        "total_duration": 4.139265001867898e-07
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "boundaries": 5e-06,
+        "total_duration": 5e-06
+      },
+      "id": "eclipse-two-periods",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "boundaries": 3.811264832620509e-07,
+        "total_duration": 8.278530003735796e-07
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "boundaries": 5e-06,
+        "total_duration": 5e-06
+      },
+      "id": "eclipse-clipped-window",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "boundaries": 0.0,
+        "total_duration": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "total_duration": 5e-06
+      },
+      "id": "eclipse-zero-window",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "total_duration": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "total_duration": 5e-06
+      },
+      "id": "eclipse-dawn-dusk",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "total_duration": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {},
+      "id": "eclipse-zero-sun-direction",
+      "method": "independent_input_check",
+      "observed_absolute_errors": {}
+    },
+    {
+      "absolute_error_budgets": {
+        "distance": 1e-07
+      },
+      "id": "proximity-instant",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "distance": 3.183231456205249e-12
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "miss_distance": 2e-05,
+        "tca": 2e-06
+      },
+      "id": "proximity-interior-crossing",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "miss_distance": 3.0184012404635603e-07,
+        "tca": 2.828403466992313e-08
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "miss_distance": 2e-05,
+        "tca": 2e-06
+      },
+      "id": "proximity-start-boundary",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "miss_distance": 0.0,
+        "tca": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "miss_distance": 2e-05,
+        "tca": 2e-06
+      },
+      "id": "proximity-end-boundary",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "miss_distance": 2.524354896707238e-29,
+        "tca": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "miss_distance": 2e-05
+      },
+      "id": "proximity-constant-separation",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "miss_distance": 3.637978807091713e-12
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "miss_distance": 2e-05,
+        "tca": 2e-06
+      },
+      "id": "proximity-zero-window",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "miss_distance": 0.0,
+        "tca": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "miss_distance": 2e-05,
+        "tca": 2e-06
+      },
+      "id": "proximity-identical-trajectories",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "miss_distance": 0.0,
+        "tca": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {},
+      "id": "proximity-negative-window",
+      "method": "independent_input_check",
+      "observed_absolute_errors": {}
+    },
+    {
+      "absolute_error_budgets": {
+        "dv_total": 1e-10,
+        "position": 5e-05,
+        "tof": 1e-08
+      },
+      "id": "multi-transfer-propagate-circle",
+      "method": "cartesian_rk4",
+      "observed_absolute_errors": {
+        "dv_total": 8.881784197001252e-16,
+        "position": 1.3706085155718029e-08,
+        "tof": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "dv_total": 1e-10,
+        "position": 5e-05,
+        "tof": 1e-08
+      },
+      "id": "multi-transfer-propagate-ellipse",
+      "method": "cartesian_rk4",
+      "observed_absolute_errors": {
+        "dv_total": 8.881784197001252e-16,
+        "position": 5.11863618157804e-09,
+        "tof": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "dv_total": 1e-10,
+        "position": 5e-05,
+        "tof": 1e-08
+      },
+      "id": "multi-transfer-propagate-lowering",
+      "method": "cartesian_rk4",
+      "observed_absolute_errors": {
+        "dv_total": 8.881784197001252e-16,
+        "position": 2.2655513021163642e-09,
+        "tof": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "tof": 1e-08,
+        "total_duration": 5e-06
+      },
+      "id": "multi-transfer-eclipse-day-start",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "tof": 0.0,
+        "total_duration": 2.6501766114961356e-07
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "tof": 1e-08,
+        "total_duration": 5e-06
+      },
+      "id": "multi-transfer-eclipse-night-start",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "tof": 0.0,
+        "total_duration": 2.069632500933949e-07
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "tof": 1e-08,
+        "total_duration": 5e-06
+      },
+      "id": "multi-transfer-eclipse-lowering",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "tof": 0.0,
+        "total_duration": 1.1387692211428657e-07
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "arrival_position": 5e-05,
+        "tof": 1e-08
+      },
+      "id": "multi-arrival-in-shadow",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "arrival_position": 1.8189894035458565e-12,
+        "tof": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "arrival_position": 5e-05,
+        "tof": 1e-08
+      },
+      "id": "multi-arrival-illuminated",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "arrival_position": 1.3242142550882145e-11,
+        "tof": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {},
+      "id": "diagnostic-missing-state",
+      "method": "independent_input_check",
+      "observed_absolute_errors": {}
+    },
+    {
+      "absolute_error_budgets": {},
+      "id": "diagnostic-j2-request",
+      "method": "independent_input_check",
+      "observed_absolute_errors": {}
+    },
+    {
+      "absolute_error_budgets": {},
+      "id": "trap-meters-as-kilometers",
+      "method": "independent_input_check",
+      "observed_absolute_errors": {}
+    },
+    {
+      "absolute_error_budgets": {},
+      "id": "trap-body-intersecting-ellipse",
+      "method": "independent_input_check",
+      "observed_absolute_errors": {}
+    },
+    {
+      "absolute_error_budgets": {},
+      "id": "trap-negative-observation-duration",
+      "method": "independent_input_check",
+      "observed_absolute_errors": {}
+    },
+    {
+      "absolute_error_budgets": {},
+      "id": "trap-unachievable-time-precision",
+      "method": "independent_input_check",
+      "observed_absolute_errors": {}
+    },
+    {
+      "absolute_error_budgets": {},
+      "id": "trap-underground-transfer",
+      "method": "independent_input_check",
+      "observed_absolute_errors": {}
+    },
+    {
+      "absolute_error_budgets": {},
+      "id": "trap-zero-gravity",
+      "method": "independent_input_check",
+      "observed_absolute_errors": {}
+    },
+    {
+      "absolute_error_budgets": {
+        "dv1": 1e-10,
+        "dv2": 1e-10,
+        "dv_total": 1e-10,
+        "tof": 1e-08
+      },
+      "id": "hohmann-equal-radii",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "dv1": 0.0,
+        "dv2": 0.0,
+        "dv_total": 0.0,
+        "tof": 0.0
+      }
+    },
+    {
+      "absolute_error_budgets": {
+        "delta_v": 1e-10
+      },
+      "id": "diagnostic-zero-impulse",
+      "method": "analytic",
+      "observed_absolute_errors": {
+        "delta_v": 0.0
+      }
+    }
+  ]
+}

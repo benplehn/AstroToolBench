@@ -1,0 +1,11 @@
+include README.md
+include CHANGELOG.md
+include LICENSE
+include .env.example
+recursive-include scripts *.py
+recursive-include tasks/astrodynamics *.json *.jsonl
+recursive-include schemas *.json
+recursive-include examples *.md *.py
+recursive-include docs *.md *.json
+recursive-include tests *.py
+recursive-include benchmark *.jsonl

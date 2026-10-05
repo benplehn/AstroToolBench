@@ -1,19 +1,45 @@
 # Architecture
 
-AstroToolBench separates the numerical backend, tool interfaces, benchmark data
-and model transport. A bounded agent runner connects model requests to numerical
-execution. Raw completion inspection remains a separate diagnostic path, and
-scoring is performed after the run using the task reference.
+The official scientific benchmark lives in `astrotoolbench` and runs offline.
+Its numerical tools, authoring, reference generation and validation have no model
+client dependency. The existing `atb` package contains the legacy interface and
+model experiments; it uses the same scientific functions through compatibility
+imports. This keeps the scientific corpus independent of those integrations.
 
 ## Repository layout
 
 ```text
 src/
-  astrodyn_tools/       Numerical routines and physical constants
+  astrotoolbench/
+    tools/
+      propagation.py   Kepler solver, orbital elements and propagation
+      maneuvers.py     Vector delta-v and Hohmann transfers
+      eclipse.py       Shadow geometry and sampled eclipse intervals
+      proximity.py     Minimum separation over an observation window
+      constants.py     Earth constants
+      _validation.py   Shared scalar/vector and sampling checks
+    benchmark/
+      schema.py        Strict task and answer-free specification models
+      catalog.py       Scientific recipe inputs, outputs and tool dependencies
+      loader.py        Whole-file parsing and partition-aware loading
+      reference.py     Scientific recipe execution
+      verification.py Independent analytic, Cartesian RK4 and input checks
+      validator.py     Read-only corpus validation and diagnostic reports
+      comparison.py    Strict answer comparison with per-output tolerances
+      families.py      Authored physical and diagnostic situations
+      coverage.py      Publication size and difficulty requirements
+      splits.py        Reviewed family registry and contamination audit
+      generation.py    Source-to-reference generation and verification report
+      artifacts.py     Deterministic serialization and safe file replacement
+      paths.py         Shared repository-relative data defaults
+      build.py         Authoring regeneration of all reviewed artifacts
+    generate_references.py  Public offline reference command
+    validate.py        Public offline validation command
+  astrodyn_tools/       Compatibility imports; no duplicated calculations
   atb/
     tools.py           B/C function schemas
     executor.py        Tool dispatch, conversion and result serialization
-    tasks.py           Task model and JSONL loader
+    tasks.py           Legacy task model and JSONL loader
     scoring.py         Final-response parsing and reference comparison
     client.py          Provider configuration and Chat Completions transport
     prompts.py         Shared system instructions and prompt-only messages
@@ -21,32 +47,52 @@ src/
     agent_cli.py       Single-task execution and scoring command
     inspection.py      Completion inspection, trace persistence and CLI
     template_inspection.py  Local chat rendering and token-cost comparison
+tasks/
+  astrodynamics/
+    specifications.jsonl  Authored inputs/contracts without numeric answers
+    tasks.jsonl        Official independently verified references
+    splits.json        Reviewed family groups and partition task IDs
+schemas/
+  task-v0.1.schema.json       Exported official task schema
+  task-spec-v0.1.schema.json  Exported authoring schema
+examples/
+  scientific_workflow.py  Offline transfer, propagation and arrival shadow
 benchmark/
-  tasks.jsonl          Prompts, families, splits, references and tolerances
+  tasks.jsonl          Legacy development data for existing agent experiments
 scripts/
   inspect_completion.py  Repository-local wrapper around the inspection CLI
   inspect_template.py    Chat-template inspection and B/C token counts
   run_agent.py           Repository-local wrapper around the agent CLI
   list_models.py        Provider model discovery
-  make_references.py    Task and reference generation
+  make_references.py    Legacy development task/reference generation
   smoke_test.py         Five-task integration check with a saved outcome summary
 results/
   completions/         Raw request/response traces, excluded from Git
   traces/<run_id>/      Agent conversations, excluded from Git
   templates/           Rendered text and token reports, excluded from Git
   smoke/               Integration summaries, including failures, excluded from Git
+pyproject.toml         Package metadata, dependencies and optional integration extras
+MANIFEST.in            Reviewed assets included in source distributions
+LICENSE                MIT license
 ```
 
-Documentation, unit tests and the CI configuration live in `docs/`, `tests/` and
-`.github/workflows/` respectively. The installed `atb-inspect` command calls
+Documentation, tests and CI live in `docs/`, `tests/` and `.github/workflows/`.
+`tests/tools/` tests science, `tests/benchmark/` tests the official corpus, and
+`tests/test_validation.py` tests the validator. `MANIFEST.in` includes reviewed
+data, exported schemas, documentation and examples in source distributions.
+The `src/` layout keeps the package importable through a normal installation.
+License metadata and the full `LICENSE` text are included in built distributions.
+The installed `atb-inspect` command calls
 `atb.inspection.main`; `atb-run` calls `atb.agent_cli.main`. Repository wrappers
 call the same implementations with paths anchored to the checkout.
 
 ## Numerical backend
 
-`astrodyn_tools` exposes period, propagation, Hohmann transfer, eclipse and closest
+`astrotoolbench.tools` exposes period, propagation, delta-v, Hohmann transfer, eclipse and closest
 approach routines. It has no dependency on a model provider. Physical assumptions
-and units belong to the numerical routines and their tests.
+and units belong to the numerical routines and their tests. Existing public
+`astrodyn_tools` imports forward to exactly the same functions. No numerical
+algorithm or reference value changes as part of the package move.
 
 `atb.tools` describes the subset available to models: period, Hohmann, propagation
 and eclipses. The B and C interfaces wrap the same calculations. C changes the
@@ -58,6 +104,19 @@ interface-specific conversions and returns JSON containing a result or error.
 There is no execution of arbitrary model-generated Python.
 
 ## Benchmark data and scoring
+
+`astrotoolbench.benchmark` owns the official versioned scientific task format.
+Its loader, generator and validator share strict parsing and the reviewed split
+audit. Generation takes answer-free specifications; validation recomputes stored
+references and checks independent scientific budgets. The exported schemas stay
+in `schemas/`, while their Python source models stay beside the loader.
+See [validation](validation.md) and [reference generation](reference-generation.md).
+
+The milestone 10 reorganization moves scientific modules formerly in
+`atb.benchmark` to `astrotoolbench.benchmark` and moves the official flat data files
+into `tasks/astrodynamics/`. Imports and documented commands use these canonical
+paths. Existing legacy model commands and `benchmark/tasks.jsonl` retain their
+own integration contract.
 
 `atb.tasks.Task` defines a prompt, family, split, expected tools, numerical
 parameters, reference and tolerances. `load_tasks()` reads JSONL, rejects duplicate

@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from astrodyn_tools import MU_EARTH, delta_v, hohmann_transfer, orbital_period
+from astrotoolbench.tools import MU_EARTH, delta_v, hohmann_transfer, orbital_period
 
 
 def test_delta_v_is_vector_difference_not_speed_difference():

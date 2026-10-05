@@ -1,0 +1,473 @@
+{
+  "$defs": {
+    "BooleanContract": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "boolean",
+          "title": "Kind",
+          "type": "string"
+        },
+        "unit": {
+          "const": "1",
+          "title": "Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "unit"
+      ],
+      "title": "BooleanContract",
+      "type": "object"
+    },
+    "Context": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "const": "Earth",
+          "title": "Body",
+          "type": "string"
+        },
+        "body_radius_km": {
+          "exclusiveMinimum": 0,
+          "title": "Body Radius Km",
+          "type": "number"
+        },
+        "dynamics": {
+          "enum": [
+            "two_body",
+            "J2"
+          ],
+          "title": "Dynamics",
+          "type": "string"
+        },
+        "epoch_s": {
+          "title": "Epoch S",
+          "type": "number"
+        },
+        "frame": {
+          "const": "ECI",
+          "title": "Frame",
+          "type": "string"
+        },
+        "requested_time_accuracy_s": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Requested Time Accuracy S"
+        },
+        "shadow": {
+          "const": "cylindrical_fixed_sun",
+          "title": "Shadow",
+          "type": "string"
+        }
+      },
+      "required": [
+        "frame",
+        "epoch_s",
+        "body",
+        "body_radius_km",
+        "dynamics",
+        "shadow",
+        "requested_time_accuracy_s"
+      ],
+      "title": "Context",
+      "type": "object"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "absolute_tolerances": {
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            }
+          },
+          "propertyNames": {
+            "minLength": 1
+          },
+          "title": "Absolute Tolerances",
+          "type": "object"
+        },
+        "method": {
+          "enum": [
+            "cartesian_rk4",
+            "analytic",
+            "independent_input_check"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "rationale": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Rationale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "method",
+        "rationale",
+        "absolute_tolerances"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "Failure": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "invalid_input",
+            "inconsistent_units",
+            "missing_input",
+            "physical_impossibility",
+            "unsupported_model",
+            "unachievable_precision"
+          ],
+          "title": "Code",
+          "type": "string"
+        },
+        "kind": {
+          "const": "error",
+          "title": "Kind",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "code",
+        "reason"
+      ],
+      "title": "Failure",
+      "type": "object"
+    },
+    "NumericContract": {
+      "additionalProperties": false,
+      "properties": {
+        "absolute_tolerance": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Absolute Tolerance"
+        },
+        "kind": {
+          "const": "numeric",
+          "title": "Kind",
+          "type": "string"
+        },
+        "relative_tolerance": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Relative Tolerance"
+        },
+        "unit": {
+          "enum": [
+            "km",
+            "km/s",
+            "s",
+            "km^3/s^2",
+            "rad",
+            "1",
+            "m",
+            "m/s",
+            "min"
+          ],
+          "title": "Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "unit"
+      ],
+      "title": "NumericContract",
+      "type": "object"
+    },
+    "Quantity": {
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "enum": [
+            "km",
+            "km/s",
+            "s",
+            "km^3/s^2",
+            "rad",
+            "1",
+            "m",
+            "m/s",
+            "min"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "value",
+        "unit"
+      ],
+      "title": "Quantity",
+      "type": "object"
+    },
+    "SuccessContract": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "success",
+          "title": "Kind",
+          "type": "string"
+        },
+        "outputs": {
+          "minProperties": 1,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "discriminator": {
+                "mapping": {
+                  "boolean": "#/$defs/BooleanContract",
+                  "numeric": "#/$defs/NumericContract"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/NumericContract"
+                },
+                {
+                  "$ref": "#/$defs/BooleanContract"
+                }
+              ]
+            }
+          },
+          "propertyNames": {
+            "minLength": 1
+          },
+          "title": "Outputs",
+          "type": "object"
+        }
+      },
+      "required": [
+        "kind",
+        "outputs"
+      ],
+      "title": "SuccessContract",
+      "type": "object"
+    }
+  },
+  "$id": "urn:astrotoolbench:task-spec:0.1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "An authoring record containing contracts, never numerical/Boolean answers.",
+  "properties": {
+    "answer_contract": {
+      "discriminator": {
+        "mapping": {
+          "error": "#/$defs/Failure",
+          "success": "#/$defs/SuccessContract"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/SuccessContract"
+        },
+        {
+          "$ref": "#/$defs/Failure"
+        }
+      ],
+      "title": "Answer Contract"
+    },
+    "category": {
+      "enum": [
+        "propagation",
+        "maneuvers",
+        "eclipse",
+        "proximity",
+        "multistep",
+        "diagnostic"
+      ],
+      "title": "Category",
+      "type": "string"
+    },
+    "context": {
+      "$ref": "#/$defs/Context"
+    },
+    "difficulty": {
+      "enum": [
+        "simple",
+        "multistep",
+        "diagnostic",
+        "trap"
+      ],
+      "title": "Difficulty",
+      "type": "string"
+    },
+    "domain": {
+      "const": "astrodynamics",
+      "title": "Domain",
+      "type": "string"
+    },
+    "family": {
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Family",
+      "type": "string"
+    },
+    "id": {
+      "pattern": "^[a-z][a-z0-9_-]+$",
+      "title": "Id",
+      "type": "string"
+    },
+    "inputs": {
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*$": {
+          "$ref": "#/$defs/Quantity"
+        }
+      },
+      "propertyNames": {
+        "minLength": 1
+      },
+      "title": "Inputs",
+      "type": "object"
+    },
+    "notes": {
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Notes",
+      "type": "string"
+    },
+    "outputs": {
+      "items": {
+        "minLength": 1,
+        "pattern": "^[a-z][a-z0-9_]*$",
+        "type": "string"
+      },
+      "title": "Outputs",
+      "type": "array"
+    },
+    "prompt": {
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Prompt",
+      "type": "string"
+    },
+    "recipe": {
+      "enum": [
+        "propagation",
+        "delta_v",
+        "circularization",
+        "hohmann",
+        "compare_transfers",
+        "shadow",
+        "eclipse",
+        "proximity",
+        "separation",
+        "transfer_propagation",
+        "transfer_eclipse",
+        "transfer_arrival_shadow"
+      ],
+      "title": "Recipe",
+      "type": "string"
+    },
+    "required_tools": {
+      "items": {
+        "enum": [
+          "propagate_kepler",
+          "delta_v",
+          "hohmann_transfer",
+          "in_cylindrical_shadow",
+          "eclipse_windows",
+          "closest_approach"
+        ],
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Required Tools",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "split": {
+      "enum": [
+        "train",
+        "validation",
+        "test"
+      ],
+      "title": "Split",
+      "type": "string"
+    },
+    "verification": {
+      "$ref": "#/$defs/Evidence"
+    }
+  },
+  "required": [
+    "schema_version",
+    "id",
+    "domain",
+    "category",
+    "difficulty",
+    "split",
+    "family",
+    "prompt",
+    "context",
+    "inputs",
+    "recipe",
+    "outputs",
+    "required_tools",
+    "verification",
+    "notes",
+    "answer_contract"
+  ],
+  "title": "TaskSpecification",
+  "type": "object"
+}

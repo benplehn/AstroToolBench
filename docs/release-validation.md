@@ -1,5 +1,9 @@
 # Integration validation
 
+This is the historical week-end 1 development integration report. The official
+50-task scientific release is described in [the v0.1.0 checklist](release-v0.1.0.md).
+The task counts and live model results below refer to the legacy development data.
+
 Validated on 3 October 2026 with Python 3.12.13. The local suite passed **116
 tests**, including numerical checks, tool-call protocol failures, CLI output and
 cached-tokenizer rendering. Dependency consistency, source compilation and the
@@ -91,8 +95,10 @@ quality; these runs do not establish its optimal value.
 ## Experimental limits and observations
 
 These five development tasks validate integration, not comparative model quality.
-All 24 current tasks belong to the development split. A held-out, family-separated
-evaluation and a contamination review are still required before training.
+All 24 tasks in this historical dataset belong to the development split. They
+remain excluded from official training exports. The official scientific corpus
+now has a [reviewed family/composition split](data-splits.md); comparative held-out
+model evaluation and external data provenance review remain future work.
 
 Condition C requires the model to convert radii into altitudes for some tasks.
 That conversion is a potential failure source and part of the interface treatment.

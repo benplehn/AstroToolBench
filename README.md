@@ -1,198 +1,140 @@
 # AstroToolBench
 
-A benchmark for language models that use orbital mechanics tools.
+AstroToolBench is an open-source benchmark for evaluating reliable scientific
+**tool use by language models**. Version **0.1.0** provides deterministic orbital
+mechanics tools, 50 independently verified tasks, reproducible references and a
+validator that runs without a model, API key or GPU.
 
-AstroToolBench compares a minimal tool interface (B), an interface with explicit
-units and input conventions (C), and a baseline without tools (A). NumPy routines
-handle the calculations; an agent connects them to a model through a chat API.
-Post-training and inference experiments are planned after the interface baseline.
+## Why?
 
-## Status
+A model using numerical tools must choose a suitable calculation, supply valid
+arguments and units, preserve intermediate precision, and recognize physical or
+model limits. Plausible prose alone cannot establish correctness. AstroToolBench
+makes those behaviors testable with explicit inputs, answer contracts and
+scientific error budgets.
 
-The numerical tools, A/B/C agent runner, single-task CLI and tokenizer inspection
-are implemented. The scientific backend now has explicit input validation and
-documented contracts for propagation, delta-v, Hohmann transfers, eclipses and
-closest approach; see [milestone 1 scientific tools](docs/scientific-tools.md).
-A five-task condition C
-smoke test on Nemotron 3.5 Lightning passed **4/5 numerical checks** on 3 October
-2026, including two dependent tool calls. Three responses were standalone final
-JSON objects; Hohmann lacked a final answer and the eclipse response had trailing
-text. These outcomes are retained in the [validation report](docs/release-validation.md)
-and [recorded traces](docs/examples/nvidia-lightning-smoke.json).
+## Why astrodynamics first?
 
-This is an integration baseline on development tasks. Comparative A/B/C results
-and post-training remain planned.
+Orbital problems produce numerical answers that can be checked with analytic
+relations or independent integration. They combine propagation, maneuvers,
+eclipses and proximity searches into dependent calculations, with clear physical
+assumptions and useful boundary cases. This makes astrodynamics a practical first
+domain for testing scientific tool use.
 
-## Architecture
+## Where is this going?
 
-Two Python packages separate scientific computation from model interaction:
-
-| Component | Responsibility |
-| --- | --- |
-| `astrodyn_tools` | Numerical flight-dynamics routines, constants and analytic validation tests. |
-| `atb.tools` | OpenAI-compatible function schemas for the B and C interfaces. |
-| `atb.executor` | Dispatch tool requests to the numerical backend; convert inputs and serialize results or errors. |
-| `atb.tasks` | Load and validate benchmark tasks from JSONL. |
-| `atb.scoring` | Compare a final response against the task reference and numerical tolerances. |
-| `atb.client` | Configure the provider, build requests and send Chat Completions. |
-| `atb.prompts` | Shared instructions and prompt construction for A/B/C runs. |
-| `atb.agent` | Run the model/tool loop, handle failures and persist conversation traces. |
-| `atb.agent_cli` | Run and score one task; display the conversation or a JSON summary. |
-| `atb.inspection` | Inspect raw completions and persist request/response traces. |
-| `atb.template_inspection` | Render recorded conversations locally and compare tool token costs. |
-
-The agent connects the model to numerical tools and keeps scoring separate:
-
-```mermaid
-flowchart LR
-    Dataset[Benchmark JSONL] --> Loader[Task loader]
-    Loader -->|Prompt only| Agent[Bounded agent runner]
-    Schemas[Tool schemas B/C] --> Agent
-    Agent --> Client[API client]
-    Client --> Model[Model provider]
-    Model -->|Assistant message / tool calls| Agent
-    Agent -->|Function name + JSON arguments| Executor[Tool executor]
-    Executor --> Backend[Numerical backend]
-    Backend --> Executor
-    Executor -->|Correlated tool results| Agent
-    Agent --> Trace[Conversation trace]
-    Agent -->|Final answer| Scorer[Scorer]
-    Loader -->|Reference + tolerance| Scorer
+```text
+Scientific benchmark → API design → LLM evaluation → post-training → GPU inference
 ```
 
-Condition A uses the same instructions with no tool schemas. The inspection
-command stops at a single model response; the agent command executes requested
-tools and continues to a final answer or an explicit terminal status. See
-[architecture and data flow](docs/architecture.md) for the component boundaries.
+The v0.1 release establishes the scientific dataset and its reproducibility.
+Comparative model evaluation, fine-tuning, MCP, vLLM and CUDA experiments remain
+future work. Existing model integration experiments are documented separately
+below; their development tasks are excluded from official training partitions.
 
-## Installation
+## Quick start
 
-Python 3.10 or later:
+Python **3.10 or later**, from the repository root:
 
 ```bash
+git clone https://github.com/benplehn/AstroToolBench.git
+cd AstroToolBench
+git checkout v0.1.0
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install ".[dev,llm]"
-python -m pytest -q
+python -m pip install -e ".[dev]"
+pytest -q
+python -m astrotoolbench.generate_references
+python -m astrotoolbench.validate
 ```
 
-For source development, use `pip install -e ".[dev,llm]"`. The `llm` extra adds the
-API client and dotenv support; `.[dev]` is sufficient for numerical tools, task
-loading and scoring. Tests requiring the LLM extra are skipped when it is absent.
+On Windows, activate the environment with `.venv\Scripts\Activate.ps1`.
+The base package needs only NumPy and Pydantic; the `dev` extra installs pytest.
+Optional model-client and tokenizer tests are skipped when their dependencies
+or cached tokenizer are absent. Scientific tests and commands never call an LLM.
 
-## Inspect a model completion
-
-From the repository root:
+To verify existing artifacts without rewriting them:
 
 ```bash
-cp .env.example .env
-# Set NVIDIA_API_KEY locally in .env.
-atb-inspect --dry-run
-atb-inspect --task period-001 --require-tool-call
+python -m astrotoolbench.generate_references --check
+python -m astrotoolbench.benchmark.build --check
+python -m astrotoolbench.validate --json
 ```
 
-The command prints the complete request body, raw model response and tool-call
-observations. It saves traces under `results/completions/`. Credentials and
-headers are excluded; `.env` and local results are ignored by Git.
+The validator exits **0** when all checks pass and **1** for dataset or artifact
+issues. Default validation covers the complete official corpus and its sources,
+partitions and scientific evidence. See the [validation guide](docs/validation.md)
+for custom paths, subset checks and machine-readable diagnostics.
 
-The default configuration targets NVIDIA's API Catalog with Nemotron 3.5 Lightning.
-An earlier Nemotron 3 Super request returned `orbital_period` with `{"altitude_km":400}` and
-`finish_reason: "tool_calls"`. The [recorded response](docs/examples/nvidia-nemotron-orbital-period.json)
-provides evidence for this integration check. Numerical answer accuracy is
-measured separately once tools are executed and a final answer is available.
+## What v0.1 contains
 
-See [completion inspection](docs/completion-inspection.md) for provider
-configuration, request controls and response fields. CI runs offline tests and
-an offline request preview on Python 3.10 and 3.12. Tokenizer files are downloaded
-once at a pinned revision; CI makes no model API calls.
-
-## Run an agent task
-
-With the same provider configuration:
-
-```bash
-atb-run --task multi-001 --api C --reasoning-budget 256 --timeout 120
-atb-run --task multi-001 --api C --reasoning-budget 256 --timeout 120 --verbose
-atb-run --task period-001 --api A --max-steps 8
-```
-
-`multi-001` obtains a Hohmann transfer duration and uses it to propagate an
-explicit initial ECI state. The command reports the final answer, numerical
-score, tool calls, tokens and latency. `--verbose` adds the initial instructions,
-call IDs and per-turn metrics; `--json` prints a summary for scripts. Every run
-writes a trace to
-`results/traces/<run_id>/<task_id>.json`, including failures and exhausted budgets.
-
-See [agent execution](docs/agent-execution.md) for the Python API, message protocol
-and trace contract. A [recorded Nemotron run](docs/examples/nvidia-nemotron-agent.json)
-completed two dependent tool calls in successive responses and passed the
-numerical check. Offline tests also cover multiple calls in one response.
-
-`--reasoning-budget` is an explicit NVIDIA inference setting, recorded in the
-trace and sent at every turn. Omitting it leaves the provider's default in effect.
-
-Run the same five-task integration check with:
-
-```bash
-python scripts/smoke_test.py --api C --reasoning-budget 256 --timeout 120
-```
-
-The script retains failed outcomes, prints each result and exits with code 1 if
-any task fails. See the validation report for the exact configuration and limits.
-
-## Inspect a chat tokenizer
-
-Benchmark prompts and recorded agent conversations can be rendered with an
-open model's chat template without loading model weights or PyTorch. The command
-also compares B/C token costs and isolates description fields. See
-[chat tokenizer inspection](docs/template-inspection.md) for the optional
-dependency, download and cache controls.
-
-```bash
-python -m pip install ".[tokenizer]"
-python scripts/inspect_template.py --task period-001
-python scripts/inspect_template.py --trace docs/examples/nvidia-nemotron-agent.json \
-  --compare-tools --local-files-only
-```
-
-## Experimental design
-
-| Condition | Interface and model configuration |
+| Item | Release contents |
 | --- | --- |
-| A | Model receives no tool schemas. |
-| B | Minimal tool descriptions and parameter conventions. |
-| C | Explicit units, input conventions and actionable errors. |
-| D | Fine-tuned open model using interface C. |
+| Scientific areas | Propagation, ΔV, Hohmann transfer, eclipse geometry/duration, closest approach. |
+| Tasks | 50 across six categories and 22 descriptive families. |
+| Difficulty | 20 simple, 12 multistep, 8 diagnostic, 10 trap. |
+| Outcomes | 38 successful computations and 12 independently reproduced errors. |
+| Partitions | 24 train, 6 validation, 20 test; 11 reviewed family/composition groups. |
+| Ground truth | 33 analytic, 5 Cartesian RK4 and 12 independent input certificates. |
+| Contracts | Explicit units, frame, model assumptions, tolerances and error codes. |
 
-B and C use the same numerical backend. Parameter conventions, unit conversions
-and error messages are part of the interface treatment. Comparisons must hold the
-model, tasks and generation settings constant and report these differences.
+A diagnostic or trap can have a valid answer; its label does not automatically
+imply refusal. Numeric outputs have individual scoring tolerances and tighter
+verification budgets. Boolean results and error codes use exact comparison.
+The split policy keeps numerical variants together and permits primitive tool
+reuse in held-out compositions. It does not establish absence from external
+model pretraining data. See [the split policy](docs/data-splits.md).
 
-The benchmark includes numerical tasks and requests requiring a refusal. Target
-metrics include numerical success, argument errors, unsupported answers, tool
-calls, tokens and latency. Comparative results have not been produced yet.
+## Data and tools
 
-## Scientific conventions
+```text
+src/astrotoolbench/tools/       Deterministic scientific implementations
+src/astrotoolbench/benchmark/   Schema, loader, recipes and independent verification
+src/astrotoolbench/validate.py  Public validation command
+tasks/astrodynamics/            Answer-free sources, references and split manifest
+schemas/                       Exported JSON Schemas
+tests/tools/                   Scientific tool tests
+tests/benchmark/               Corpus, generation and reference regression tests
+tests/test_validation.py       Validator and CLI tests
+examples/                      Offline scientific workflows
+docs/                          Scientific contracts, evidence and release checklist
+```
 
-Distances: km; velocities: km/s; time: s; angles: rad. State vectors use an
-Earth-centered inertial frame. The backend uses two-body dynamics and a
-cylindrical Earth-shadow model. The C interface accepts orbital altitudes for
-period and Hohmann calculations; position vectors are measured from Earth's
-center.
+The generator reads `tasks/astrodynamics/specifications.jsonl`, calculates the
+answers and verifies them independently before publishing any output. It writes
+`tasks/astrodynamics/tasks.jsonl`, the split manifest and the
+[accuracy report](docs/reference-verification.json). It does not use existing
+expected numbers as computational input. The reviewed reference snapshots remain
+protected by regression tests.
 
-The scientific backend can be used offline with `pip install -e '.[dev]'`.
-Its [tool contracts and examples](docs/scientific-tools.md) specify inputs,
-outputs, errors, singular-orbit conventions, custom central bodies and the
-sampling limits of eclipse and proximity searches. Run its checks with
-`python -m pytest tests/tools tests/test_core.py -q`.
+The production model is two-body orbital dynamics with a fixed-Sun cylindrical
+shadow. Distances are km, velocities km/s, time s and angles rad in an ECI frame
+for Earth tasks. Sampled event searches have explicit resolution limits; new
+families must provide suitable independent certificates.
 
-Generated references check consistency with the numerical backend. Analytic and
-textbook tests provide separate validation of the physical calculations. Current
-task families and splits will require an explicit contamination review before
-training and reporting held-out model results.
+```bash
+python examples/scientific_workflow.py
+```
 
-## Roadmap
+[Tool contracts](docs/scientific-tools.md) · [Task format](docs/task-format.md) ·
+[Ground-truth evidence](docs/ground-truth.md) · [Reference generation](docs/reference-generation.md) ·
+[Problem families](docs/problem-families.md) · [Architecture](docs/architecture.md) ·
+[Release checklist](docs/release-v0.1.0.md)
 
-- Comparative evaluation across models and interface conditions.
-- Family-separated training and evaluation data.
-- PyTorch/LoRA post-training and vLLM inference experiments.
+## Optional model experiments
+
+The existing `atb` package supports legacy A/B/C interface experiments and saved
+traces. Install `.[dev,llm]` for model-client tests and commands, or add `tokenizer`
+for local template inspection. `astrodyn_tools` imports remain compatible with
+the canonical scientific functions. The distribution name remains
+`astrodyn-tools`; the public scientific namespace is `astrotoolbench`.
+
+See [model execution](docs/agent-execution.md), [completion inspection](docs/completion-inspection.md),
+[tokenizer inspection](docs/template-inspection.md) and the
+[historical integration report](docs/release-validation.md). The recorded five-task
+Lightning smoke test passed 4/5 numerical checks; it is a development integration
+check, not a result on the official held-out corpus.
+
+## License
+
+[MIT](LICENSE).

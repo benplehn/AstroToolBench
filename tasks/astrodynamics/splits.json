@@ -1,0 +1,156 @@
+{
+  "cross_split_family_overlaps": 0,
+  "cross_split_problem_duplicates": 0,
+  "cross_split_successful_recipe_overlaps": 0,
+  "groups": {
+    "circular_transfers": {
+      "families": [
+        "hohmann_transfer",
+        "transfer_comparison"
+      ],
+      "rationale": "Raising, lowering, equal radii and comparisons reuse the Hohmann solution.",
+      "split": "train"
+    },
+    "closest_approach": {
+      "families": [
+        "closest_approach"
+      ],
+      "rationale": "A minimum over time is held out from instantaneous-separation questions.",
+      "split": "test"
+    },
+    "cylindrical_shadow": {
+      "families": [
+        "eclipse_detection",
+        "eclipse_duration"
+      ],
+      "rationale": "Instantaneous geometry and sampled intervals share the same shadow model.",
+      "split": "train"
+    },
+    "impulsive_maneuvers": {
+      "families": [
+        "velocity_impulse",
+        "circularization"
+      ],
+      "rationale": "Vector impulses and local circularization share the velocity-change computation.",
+      "split": "train"
+    },
+    "input_contract": {
+      "families": [
+        "missing_information",
+        "invalid_search",
+        "invalid_parameters"
+      ],
+      "rationale": "Missing information, invalid observation intervals and nonpositive gravity are development diagnostics.",
+      "split": "validation"
+    },
+    "kepler_propagation": {
+      "families": [
+        "kepler_circular",
+        "kepler_elliptic"
+      ],
+      "rationale": "Circular and elliptic states use the same complete Kepler propagation operation.",
+      "split": "train"
+    },
+    "model_limits": {
+      "families": [
+        "unsupported_physics",
+        "precision_contract"
+      ],
+      "rationale": "Unavailable perturbation physics and unattainable event guarantees are held-out model-limit diagnoses.",
+      "split": "test"
+    },
+    "orbital_geometry": {
+      "families": [
+        "invalid_geometry",
+        "unsupported_orbit"
+      ],
+      "rationale": "Body intersection, undefined shadow geometry and unbound orbital states are held-out physical diagnoses.",
+      "split": "test"
+    },
+    "state_separation": {
+      "families": [
+        "kepler_comparison",
+        "separation_at_epoch"
+      ],
+      "rationale": "Both labels compute two propagated positions and their simultaneous separation.",
+      "split": "validation"
+    },
+    "transfer_composition": {
+      "families": [
+        "transfer_then_propagation",
+        "transfer_then_eclipse",
+        "transfer_arrival_eclipse"
+      ],
+      "rationale": "Dependent transfer/propagation/shadow workflows are held out as complete compositions.",
+      "split": "test"
+    },
+    "unit_contract": {
+      "families": [
+        "invalid_units"
+      ],
+      "rationale": "Mixed position/velocity units are the same dimensional-consistency failure.",
+      "split": "train"
+    }
+  },
+  "policy_version": "1",
+  "scope": "Primitive tool reuse inside held-out compositions is intentional. Legacy development data is excluded from training. External pretraining contamination is not assessed.",
+  "splits": {
+    "test": [
+      "diagnostic-j2-request",
+      "eclipse-zero-sun-direction",
+      "multi-arrival-illuminated",
+      "multi-arrival-in-shadow",
+      "multi-transfer-eclipse-day-start",
+      "multi-transfer-eclipse-lowering",
+      "multi-transfer-eclipse-night-start",
+      "multi-transfer-propagate-circle",
+      "multi-transfer-propagate-ellipse",
+      "multi-transfer-propagate-lowering",
+      "prop-unbound-state",
+      "proximity-constant-separation",
+      "proximity-end-boundary",
+      "proximity-identical-trajectories",
+      "proximity-interior-crossing",
+      "proximity-start-boundary",
+      "proximity-zero-window",
+      "trap-body-intersecting-ellipse",
+      "trap-unachievable-time-precision",
+      "trap-underground-transfer"
+    ],
+    "train": [
+      "diagnostic-zero-impulse",
+      "dv-circularize-apogee",
+      "dv-circularize-periapsis",
+      "dv-mixed-units",
+      "dv-reversal",
+      "dv-vector-turn",
+      "eclipse-clipped-window",
+      "eclipse-dawn-dusk",
+      "eclipse-one-period",
+      "eclipse-two-periods",
+      "eclipse-zero-window",
+      "hohmann-compare-targets",
+      "hohmann-equal-radii",
+      "hohmann-lowering",
+      "hohmann-raising",
+      "prop-backward",
+      "prop-circular-quarter",
+      "prop-elliptic-arbitrary",
+      "prop-inclined-full-period",
+      "prop-periapsis-apogee",
+      "prop-zero-duration",
+      "shadow-day-side",
+      "shadow-night-side",
+      "trap-meters-as-kilometers"
+    ],
+    "validation": [
+      "diagnostic-missing-state",
+      "prop-compare-two-states",
+      "proximity-instant",
+      "proximity-negative-window",
+      "trap-negative-observation-duration",
+      "trap-zero-gravity"
+    ]
+  },
+  "strategy": "reviewed_family_and_complete_computation_groups"
+}
