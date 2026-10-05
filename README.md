@@ -10,7 +10,10 @@ Post-training and inference experiments are planned after the interface baseline
 ## Status
 
 The numerical tools, A/B/C agent runner, single-task CLI and tokenizer inspection
-are implemented. The local suite passes **116 tests**. A five-task condition C
+are implemented. The scientific backend now has explicit input validation and
+documented contracts for propagation, delta-v, Hohmann transfers, eclipses and
+closest approach; see [milestone 1 scientific tools](docs/scientific-tools.md).
+A five-task condition C
 smoke test on Nemotron 3.5 Lightning passed **4/5 numerical checks** on 3 October
 2026, including two dependent tool calls. Three responses were standalone final
 JSON objects; Hohmann lacked a final answer and the eclipse response had trailing
@@ -176,6 +179,12 @@ Earth-centered inertial frame. The backend uses two-body dynamics and a
 cylindrical Earth-shadow model. The C interface accepts orbital altitudes for
 period and Hohmann calculations; position vectors are measured from Earth's
 center.
+
+The scientific backend can be used offline with `pip install -e '.[dev]'`.
+Its [tool contracts and examples](docs/scientific-tools.md) specify inputs,
+outputs, errors, singular-orbit conventions, custom central bodies and the
+sampling limits of eclipse and proximity searches. Run its checks with
+`python -m pytest tests/tools tests/test_core.py -q`.
 
 Generated references check consistency with the numerical backend. Analytic and
 textbook tests provide separate validation of the physical calculations. Current
