@@ -16,6 +16,8 @@ First reproducible scientific benchmark release.
   `python -m astrotoolbench.validate`, deterministic artifacts and diagnostics.
 - Added scientific, dataset and validator regression tests plus scientific CI
   on Python 3.10 and 3.12 without optional LLM dependencies.
+- Restricted default pytest discovery to `tests/`, so installing only `.[dev]`
+  does not collect optional live-model experiment scripts.
 - Organized scientific code under `astrotoolbench`, retained `astrodyn_tools`
   compatibility imports, and included data, schemas, examples and MIT licensing
   in source distributions.
