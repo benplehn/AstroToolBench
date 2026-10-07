@@ -21,7 +21,7 @@ jobs:
       - name: Install scientific dependencies only
         run: python -m pip install ".[dev]"
       - name: Scientific tools, corpus and validation tests
-        run: python -m pytest tests/tools tests/benchmark tests/test_validation.py -q
+        run: python -m pytest tests/tools tests/benchmark tests/models tests/test_validation.py -q
       - name: Validate the committed corpus and evidence
         run: python -m astrotoolbench.validate
       - name: Regenerate and validate references in a temporary directory

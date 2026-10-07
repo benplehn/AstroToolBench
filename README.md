@@ -85,10 +85,11 @@ This obviously says nothing about what's in a model's pretraining data.
 ```text
 src/astrotoolbench/tools/       scientific tools
 src/astrotoolbench/benchmark/   schema, loader, task definitions, verification
+src/astrotoolbench/models/      common model interface, optional API adapter
 src/astrotoolbench/validate.py  validation command
 tasks/astrodynamics/            task sources, references, split manifest
 schemas/                        JSON Schemas
-tests/                          tests (tools/, benchmark/, validator)
+tests/                          tests (tools/, benchmark/, models/, validator)
 examples/                       offline examples
 docs/                           documentation
 ```
@@ -112,6 +113,15 @@ More docs: [tools](docs/scientific-tools.md) · [task format](docs/task-format.m
 [release notes](docs/release-v0.1.0.md)
 
 ## Model experiments
+
+The next model runs will use the frozen `benchmark-v0.1` corpus. The
+[frozen loader](docs/benchmark-freeze.md) checks file hashes before returning any
+tasks, including their IDs, families, references and tolerances.
+
+`astrotoolbench.models` now defines the common conversation interface and an
+OpenAI-compatible adapter for NVIDIA and similar endpoints. See
+[model backends](docs/model-backends.md) for the contract and configuration.
+The evaluation runner and model comparisons are still to come.
 
 Before building the official dataset, I wrote a first prototype (`atb` package)
 that runs a model in a tool-calling loop against these tools, with three

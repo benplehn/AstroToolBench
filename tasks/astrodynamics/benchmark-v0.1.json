@@ -1,0 +1,15 @@
+{
+  "benchmark": "AstroToolBench",
+  "files": {
+    "docs/reference-verification.json": "c67c76fbeff72e3d2af6b1af927dbb36f87327b589269d5a69dd45b4fb74cf54",
+    "schemas/task-spec-v0.1.schema.json": "7b9e6098a4e1a791cc4869dd8b02000b32f9352dcdcf9554bdbb0363a70ed431",
+    "schemas/task-v0.1.schema.json": "d45b928969ab7a80975172d229d1307b05b039de47aef8539d08be2da4858547",
+    "tasks/astrodynamics/specifications.jsonl": "e1c11c16138d13282d28f8d54eb4c743304ea36efc0fc203b3c78460bf779a22",
+    "tasks/astrodynamics/splits.json": "fa8f5b93e2c97822dd27c0ea1c96a7251aedbf21db23fa2e233ebb0b58c5b09f",
+    "tasks/astrodynamics/tasks.jsonl": "6aa85b2d61a9bf830389ea2e714e62ebad7ff97d0cdb4186730a1db9439ee1a2"
+  },
+  "source_commit": "222125788897206010e9f4ba72ddf3945ce18efa",
+  "tag": "benchmark-v0.1",
+  "task_count": 50,
+  "version": "0.1"
+}

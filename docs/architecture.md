@@ -3,7 +3,8 @@
 Two parts:
 
 - `astrotoolbench`: the benchmark itself (tools, tasks, reference generation,
-  validation). Runs fully offline, no LLM dependency.
+  validation) and the common model interface. The scientific code and model
+  contract run offline; the optional API adapter needs the `llm` extra.
 - `atb`: my first agent prototype, which runs a model against the tools. It
   imports the same scientific functions, so the two never disagree on the math.
 
@@ -23,6 +24,7 @@ src/
       schema.py        task and specification models (Pydantic)
       catalog.py       recipes: inputs, outputs, tools used
       loader.py        loads a whole file, filters by split
+      frozen.py        checks the benchmark-v0.1 snapshot before loading
       reference.py     runs the recipe for a task
       verification.py  independent checks (analytic, RK4, inputs)
       validator.py     read-only validation and reports
@@ -34,6 +36,9 @@ src/
       artifacts.py     deterministic JSON output, safe file writes
       paths.py         default data paths
       build.py         regenerates all committed artifacts
+    models/
+      base.py          provider-independent messages, calls and responses
+      api.py           OpenAI-compatible adapter using the existing transport
     generate_references.py
     validate.py
   astrodyn_tools/       old import path, re-exports the same functions
@@ -52,6 +57,7 @@ tasks/astrodynamics/
   specifications.jsonl  tasks without answers
   tasks.jsonl          tasks with verified answers
   splits.json          split manifest
+  benchmark-v0.1.json   hashes of the frozen corpus and companion files
 schemas/                exported JSON Schemas
 examples/scientific_workflow.py
 benchmark/tasks.jsonl   the older dev tasks used by atb
@@ -106,6 +112,12 @@ the task prompt and the tool schemas. Traces store task ID, family and split, bu
 not the reference.
 
 ## Model calls and inspection
+
+New experimental code will use `astrotoolbench.models.ModelBackend`, returning
+common response types rather than SDK objects. `OpenAIBackend` adapts
+`atb.client`; another provider or a local model can implement the same
+`generate` method. See [model backends](model-backends.md) and
+[the benchmark snapshot](benchmark-freeze.md).
 
 `atb.client` builds requests for the configured endpoint and picks the right API
 key. Keys never show up in reprs or logs, and loading `.env` doesn't modify
