@@ -77,11 +77,12 @@ from importlib.abc import MetaPathFinder
 sys.path.insert(0, sys.argv[1])
 class NoSDK(MetaPathFinder):
     def find_spec(self, fullname, path=None, target=None):
-        if fullname.split('.')[0] in {'openai', 'dotenv', 'transformers', 'atb'}:
+        if fullname.split('.')[0] in {'openai', 'dotenv', 'transformers', 'torch', 'atb'}:
             raise ImportError('API dependency blocked: ' + fullname)
 sys.meta_path.insert(0, NoSDK())
 from astrotoolbench.models import Message, ModelBackend, ModelResponse, OpenAIBackend
 from astrotoolbench.benchmark import load_frozen_benchmark
+from astrotoolbench.eval.__main__ import main
 assert ModelResponse(model='offline', content='ok').content == 'ok'
 assert len(load_frozen_benchmark()) == 50
 """

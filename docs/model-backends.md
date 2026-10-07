@@ -60,3 +60,11 @@ provider-specific options belong in the adapter.
 Importing `astrotoolbench.models` does not import OpenAI, load credentials or
 contact a provider. Only the API adapter needs the `llm` extra. The tests use
 fake responses; no model evaluation has been run through this new interface yet.
+
+`HuggingFaceBackend` implements local text generation with a pinned checkpoint
+and greedy decoding. Its optional dependencies are in `.[local]`; importing the
+interface does not import Torch or Transformers. It loads weights when the
+backend is constructed, before per-task timing, and rejects tool requests.
+
+The selected profiles are described in [baseline models](baseline-models.md).
+The first experiment using this interface is [baseline A](no-tools-baseline.md).

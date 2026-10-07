@@ -86,10 +86,11 @@ This obviously says nothing about what's in a model's pretraining data.
 src/astrotoolbench/tools/       scientific tools
 src/astrotoolbench/benchmark/   schema, loader, task definitions, verification
 src/astrotoolbench/models/      common model interface, optional API adapter
+src/astrotoolbench/eval/        no-tools baseline and JSONL results
 src/astrotoolbench/validate.py  validation command
 tasks/astrodynamics/            task sources, references, split manifest
 schemas/                        JSON Schemas
-tests/                          tests (tools/, benchmark/, models/, validator)
+tests/                          tests (tools/, benchmark/, models/, eval/, validator)
 examples/                       offline examples
 docs/                           documentation
 ```
@@ -118,10 +119,27 @@ The next model runs will use the frozen `benchmark-v0.1` corpus. The
 [frozen loader](docs/benchmark-freeze.md) checks file hashes before returning any
 tasks, including their IDs, families, references and tolerances.
 
-`astrotoolbench.models` now defines the common conversation interface and an
-OpenAI-compatible adapter for NVIDIA and similar endpoints. See
-[model backends](docs/model-backends.md) for the contract and configuration.
-The evaluation runner and model comparisons are still to come.
+Four [model profiles](docs/baseline-models.md) are selected: Claude Sonnet 4.6,
+Gemini 2.5 Pro, Nemotron 3.5 Lightning and a pinned Qwen 4B checkpoint. Hosted
+models use the existing API adapter; Qwen has a local Hugging Face backend.
+
+The [no-tools baseline](docs/no-tools-baseline.md) runs one turn per task and
+saves answers, correctness, tokens and latency in JSONL. Preview a request
+without contacting a model:
+
+```bash
+python -m astrotoolbench.eval --model nemotron --task prop-circular-quarter --dry-run
+```
+
+To run the held-out split, install `.[llm]`, set `NVIDIA_API_KEY`, then:
+
+```bash
+python -m astrotoolbench.eval --model nemotron --condition no_tools --split test
+```
+
+Results go to `results/nemotron/no_tools.jsonl`; existing runs are never
+overwritten. The tool-assisted condition and measured model comparisons are
+still to come. See [model backends](docs/model-backends.md) for the interface.
 
 Before building the official dataset, I wrote a first prototype (`atb` package)
 that runs a model in a tool-calling loop against these tools, with three
