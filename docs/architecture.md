@@ -3,8 +3,8 @@
 Two parts:
 
 - `astrotoolbench`: the benchmark itself (tools, tasks, reference generation,
-  validation) and the common model interface. The scientific code and model
-  contract run offline; API calls need `llm`, local inference needs `local`.
+  validation), plus the model interface and evaluation runner. Everything runs
+  offline except the actual model calls (`llm` extra for APIs, `local` for Qwen).
 - `atb`: my first agent prototype, which runs a model against the tools. It
   imports the same scientific functions, so the two never disagree on the math.
 
@@ -40,10 +40,14 @@ src/
       base.py          provider-independent messages, calls and responses
       api.py           OpenAI-compatible adapter using the existing transport
       catalog.py       four selected model profiles and backend construction
-      local.py         pinned Hugging Face text generation
+      local.py         pinned Hugging Face generation and tool replay
+      qwen.py          native Qwen tool-call envelope decoder
     eval/
       prompts.py       public task inputs, no references or recipe
       no_tools.py      single-turn baseline A, comparison and JSONL output
+      common.py        shared final-answer checks and result metadata
+      raw_tools.py     original function schemas and bounded execution
+      with_tools.py    multi-turn baseline B and task checkpoints
       __main__.py      baseline command and offline preview
     generate_references.py
     validate.py
@@ -119,17 +123,17 @@ not the reference.
 
 ## Model calls and inspection
 
-New experimental code uses `astrotoolbench.models.ModelBackend`, returning
-common response types rather than SDK objects. `OpenAIBackend` adapts
-`atb.client`; `HuggingFaceBackend` runs the pinned local model. Both implement
-the same `generate` method. See [model backends](model-backends.md) and
-[the benchmark snapshot](benchmark-freeze.md).
+The new evaluation code goes through `astrotoolbench.models.ModelBackend` and
+only sees common types, never SDK objects. `OpenAIBackend` wraps `atb.client`,
+`HuggingFaceBackend` runs the local model; both just implement `generate`. See
+[model backends](model-backends.md) and [the frozen benchmark](benchmark-freeze.md).
 
-`astrotoolbench.eval` currently runs baseline A. It checks the frozen snapshot,
-builds messages from public task data, calls the model with no tools, compares
-complete JSON answers and writes one result per task. It does not use the older
-agent loop or its development dataset. Details in
-[the no-tools baseline](no-tools-baseline.md).
+`astrotoolbench.eval` runs condition A or B on the frozen tasks, with the same
+messages and the same answer scoring. A is a single request without tools. B
+gives the original functions and saves each model/tool exchange to a trace file
+as it goes, then writes the finished task to JSONL. It doesn't reuse the old
+`atb` agent loop or its dev tasks. Details: [no tools](no-tools-baseline.md),
+[raw tools](raw-tools-baseline.md).
 
 `atb.client` builds requests for the configured endpoint and picks the right API
 key. Keys never show up in reprs or logs, and loading `.env` doesn't modify

@@ -1,9 +1,10 @@
-"""Hugging Face text generation for the local no-tools baseline."""
+"""Hugging Face generation using Qwen's native tool-call template."""
 
 from collections.abc import Sequence
 import re
 
-from .base import BackendError, Message, ModelBackend, ModelResponse, TokenUsage, ToolDefinition
+from .base import BackendError, BackendProtocolError, Message, ModelBackend, ModelResponse, TokenUsage, ToolDefinition
+from .qwen import parse_tool_calls
 
 
 class HuggingFaceBackend(ModelBackend):
@@ -38,13 +39,23 @@ class HuggingFaceBackend(ModelBackend):
     def generate(
         self, messages: Sequence[Message], tools: Sequence[ToolDefinition] | None = None,
     ) -> ModelResponse:
-        if tools or any(message.role == "tool" or message.tool_calls for message in messages):
-            raise ValueError("The local text backend supports conversations without tools.")
         if not messages:
             raise ValueError("At least one message is required.")
-        conversation = [{"role": message.role, "content": message.content} for message in messages]
+        conversation = []
+        for message in messages:
+            item = {"role": message.role, "content": message.content}
+            if message.tool_calls:
+                item["tool_calls"] = [{"type": "function", "function": {
+                    "name": call.name, "arguments": call.arguments,
+                }} for call in message.tool_calls]
+            if message.tool_call_id is not None:
+                item["tool_call_id"] = message.tool_call_id
+            conversation.append(item)
         try:
-            text = self._tokenizer.apply_chat_template(conversation, tokenize=False, add_generation_prompt=True)
+            options = {"tokenize": False, "add_generation_prompt": True}
+            if tools:
+                options["tools"] = [{"type": "function", "function": tool.model_dump(mode="json")} for tool in tools]
+            text = self._tokenizer.apply_chat_template(conversation, **options)
             inputs = self._tokenizer([text], return_tensors="pt").to(self._model.device)
             input_tokens = inputs["input_ids"].shape[-1]
             with self._torch.inference_mode():
@@ -56,10 +67,22 @@ class HuggingFaceBackend(ModelBackend):
             eos = self._model.generation_config.eos_token_id
             eos_ids = eos if isinstance(eos, list) else [eos]
             stopped = len(generated) > 0 and generated[-1].item() in eos_ids
+            finish = "length" if len(generated) >= self.max_tokens and not stopped else "stop"
+            raw_content = self._tokenizer.decode(generated, skip_special_tokens=True)
+            content, calls = raw_content, ()
+            if tools and finish == "stop":
+                try:
+                    content, calls = parse_tool_calls(raw_content)
+                except BackendProtocolError:
+                    # A broken <tool_call> is the model's mistake, not a backend failure.
+                    finish = "invalid_tool_call"
             return ModelResponse(
-                model=self.model, content=self._tokenizer.decode(generated, skip_special_tokens=True),
-                finish_reason="length" if len(generated) >= self.max_tokens and not stopped else "stop",
+                model=self.model, content=content, tool_calls=calls,
+                raw_content=raw_content if tools else None,
+                finish_reason="tool_calls" if calls else finish,
                 usage=TokenUsage(input_tokens=input_tokens, output_tokens=len(generated)),
             )
+        except BackendError:
+            raise
         except (RuntimeError, ValueError, TypeError) as error:
             raise BackendError("Local model generation failed.") from error

@@ -59,7 +59,7 @@ def test_every_corpus_outcome_uses_existing_scientific_comparison(corpus):
         backend.generate.assert_called_once_with(build_messages(task), tools=None)
 
 
-@pytest.mark.parametrize("content", ["No idea.", '```json\n{"outputs":{}}\n```', "[]", "null",
+@pytest.mark.parametrize("content", ["No idea.", "[]", "null", 'Result: {"x": 1}',
                                    '{"outputs":{"x":NaN}}', '{"outputs":{},"outputs":{}}'])
 def test_invalid_final_json_is_saved_as_failure(corpus, content):
     backend = MagicMock()
@@ -68,6 +68,29 @@ def test_invalid_final_json_is_saved_as_failure(corpus, content):
     assert result["status"] == "invalid_answer"
     assert result["answer"] == content
     assert result["correct"] is False
+    assert result["format_ok"] is False
+
+
+@pytest.mark.parametrize("wrap", ["```json\n{}\n```", "The answer is {} as requested.",
+                                  'Draft: {"x": 1}\nFinal:\n{}'])
+def test_wrapped_answer_is_scored_but_flagged_as_bad_format(corpus, wrap):
+    task = corpus[0]
+    backend = MagicMock()
+    content = wrap.replace("{}", json.dumps(correct_answer(task)))
+    backend.generate.return_value = ModelResponse(model="fake", content=content, finish_reason="stop")
+    result = evaluate_task(task, backend, model="fake")
+    assert result["status"] == "completed"
+    assert result["correct"] is True
+    assert result["format_ok"] is False
+
+
+def test_last_answer_object_wins(corpus):
+    task = corpus[0]
+    backend = MagicMock()
+    wrong = {"error": "invalid_input", "reason": "first guess"}
+    content = json.dumps(wrong) + "\nActually:\n" + json.dumps(correct_answer(task))
+    backend.generate.return_value = ModelResponse(model="fake", content=content, finish_reason="stop")
+    assert evaluate_task(task, backend, model="fake")["correct"] is True
 
 
 @pytest.mark.parametrize("options,status", [

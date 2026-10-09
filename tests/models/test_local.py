@@ -79,13 +79,43 @@ def test_multiple_eos_ids_and_device_dtype(local_runtime):
     local_runtime.model.to.assert_called_once_with("mps")
 
 
-def test_tool_requests_are_rejected_instead_of_silently_ignored(local_runtime):
+def test_tools_are_rendered_and_normalized_using_the_native_template(local_runtime):
     backend = HuggingFaceBackend("test/model", revision=REVISION)
-    with pytest.raises(ValueError, match="without tools"):
-        backend.generate([Message(role="user", content="hello")], [
-            ToolDefinition(name="period", description="Period.", parameters={"type": "object"}),
-        ])
-    local_runtime.model.generate.assert_not_called()
+    local_runtime.tokenizer.decode.return_value = '<tool_call>{"name":"period","arguments":{"a":7000}}</tool_call>'
+    tools = [ToolDefinition(name="period", description="Period.", parameters={"type": "object"})]
+    response = backend.generate([Message(role="user", content="hello")], tools)
+    assert response.finish_reason == "tool_calls"
+    assert response.tool_calls[0].name == "period"
+    assert response.raw_content == local_runtime.tokenizer.decode.return_value
+    assert local_runtime.tokenizer.apply_chat_template.call_args.kwargs["tools"] == [
+        {"type": "function", "function": tools[0].model_dump()}
+    ]
+    backend.generate([response.as_message(), Message(role="tool", tool_call_id=response.tool_calls[0].id,
+                                                    content='{"success":true,"result":5828.5}')], tools)
+    replay = local_runtime.tokenizer.apply_chat_template.call_args.args[0]
+    assert replay[0]["tool_calls"][0]["function"]["arguments"] == response.tool_calls[0].arguments
+    assert replay[1]["tool_call_id"] == response.tool_calls[0].id
+
+
+def test_truncated_local_call_is_kept_as_text_and_never_decoded(local_runtime):
+    local_runtime.model.generate.return_value = [Tokens([1, 2, 3, 4, 5])]
+    local_runtime.tokenizer.decode.return_value = '<tool_call>{"name":"period"'
+    response = HuggingFaceBackend("test/model", revision=REVISION, max_tokens=2).generate(
+        [Message(role="user", content="hello")], [ToolDefinition(name="period", description="", parameters={})],
+    )
+    assert response.finish_reason == "length"
+    assert not response.tool_calls
+    assert response.raw_content == local_runtime.tokenizer.decode.return_value
+
+
+def test_malformed_local_tool_envelope_is_returned_as_a_model_mistake(local_runtime):
+    local_runtime.tokenizer.decode.return_value = '<tool_call>bad JSON</tool_call>'
+    response = HuggingFaceBackend("test/model", revision=REVISION).generate(
+        [Message(role="user", content="hello")], [ToolDefinition(name="period", description="", parameters={})],
+    )
+    assert response.finish_reason == "invalid_tool_call"
+    assert not response.tool_calls
+    assert response.content == response.raw_content == local_runtime.tokenizer.decode.return_value
 
 
 def test_local_runtime_errors_use_the_common_error(local_runtime):

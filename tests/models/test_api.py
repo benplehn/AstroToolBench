@@ -115,6 +115,18 @@ def test_invalid_response_raises_common_protocol_error(fake_client, completion, 
         backend().generate([Message(role="user", content="hello")])
 
 
+def test_protocol_error_keeps_original_calls_for_trace_audit(fake_client, completion):
+    completion["choices"][0]["message"]["tool_calls"] = [
+        {"id": "", "type": "function", "function": {"name": "period", "arguments": "{bad JSON"}},
+    ]
+    fake_client.chat.completions.create.return_value = ChatCompletion.model_validate(completion)
+    with pytest.raises(BackendProtocolError) as caught:
+        backend().generate([Message(role="user", content="hello")])
+    raw = caught.value.raw_response["choices"][0]["message"]["tool_calls"][0]
+    assert raw["id"] == ""
+    assert raw["function"]["arguments"] == "{bad JSON"
+
+
 def test_status_error_is_normalized_without_provider_body(fake_client):
     response = MagicMock(status_code=429)
     error = APIStatusError("private-provider-detail", response=response, body={"secret": "private"})

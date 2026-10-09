@@ -1,34 +1,34 @@
 # Model backends
 
-The experimental code talks to `ModelBackend.generate(messages, tools=None)`.
-Messages, tool definitions and responses live in `astrotoolbench.models.base`;
-they contain no provider SDK objects.
+The evaluation code only talks to `ModelBackend.generate(messages, tools=None)`.
+The types live in `astrotoolbench.models.base`, with no provider SDK objects, so
+the benchmark doesn't depend on any particular API.
 
 | Type | Contents |
 | --- | --- |
-| `Message` | Role, text, optional assistant tool calls or tool result ID |
-| `ToolDefinition` | Name, description, JSON Schema for parameters |
-| `ToolCall` | Call ID, function name, arguments as a JSON string |
-| `ModelResponse` | Returned model ID, text, calls, finish reason, refusal, usage |
-| `TokenUsage` | Input and output tokens; `None` when not reported |
+| `Message` | role, text, assistant tool calls or tool result ID |
+| `ToolDefinition` | name, description, JSON Schema of the parameters |
+| `ToolCall` | call ID, function name, arguments as a JSON string |
+| `ModelResponse` | model ID, text, calls, finish reason, refusal, usage, raw text |
+| `TokenUsage` | input/output tokens, `None` if not reported |
 
-One call produces one assistant turn. It does not run any scientific function.
-Tool arguments remain strings, including malformed JSON: the execution layer
-will need to record and handle that error. Empty or duplicate call IDs are
-rejected because a tool result could not be matched reliably to its request.
+One call = one assistant turn. It never runs a tool. Arguments stay as strings,
+even broken JSON, so the execution layer can record the mistake. Empty or
+duplicate call IDs are rejected, since the results couldn't be matched to the
+right call.
 
-`response.as_message()` carries the assistant turn back into the conversation.
-For each executed call, add a `Message(role="tool", content=..., tool_call_id=...)`
-with the matching ID before asking for the next turn.
+To continue a conversation: add `response.as_message()`, then one
+`Message(role="tool", content=..., tool_call_id=...)` per executed call, then
+call `generate` again.
 
 ## OpenAI-compatible APIs
 
-`OpenAIBackend` adapts the existing `atb.client` transport, so endpoint/key
-selection, timeouts and client cleanup stay in one place. It works with NVIDIA
-and other endpoints implementing the same Chat Completions protocol.
+`OpenAIBackend` reuses the `atb.client` transport (endpoint, key selection,
+timeouts, cleanup), so it works with NVIDIA, OpenRouter and anything else that
+speaks Chat Completions.
 
-Install `.[llm]` and supply the endpoint, exact model ID and matching key through
-the existing configuration. This example makes a real API call when run:
+Install `.[llm]` and configure the endpoint, model and key. This makes a real
+API call:
 
 ```python
 from atb.client import ClientSettings
@@ -39,32 +39,32 @@ response = backend.generate([Message(role="user", content="Hello.")])
 print(response.content)
 ```
 
-The adapter defaults to temperature 0, 4096 output tokens and the transport's
-default of no automatic retries. These can be configured explicitly. NVIDIA's
-optional `reasoning_budget` stays in this adapter rather than the common
-interface. With `tools=None` or an empty sequence, the request omits both
-`tools` and `tool_choice`.
+Defaults: temperature 0, 4096 output tokens, no automatic retries. NVIDIA's
+`reasoning_budget` stays in this adapter, not in the common interface. With no
+tools, `tools` and `tool_choice` aren't sent at all.
 
-SDK failures become `BackendError`; HTTP status codes are available through
-`status_code`. Malformed responses become `BackendProtocolError`. The exception
-message omits provider bodies; the original exception is retained as its cause.
-Truncation and refusal are returned as response fields, not successful answers.
+SDK errors become `BackendError` (with `status_code`), malformed responses
+become `BackendProtocolError`. The message never includes the provider's error
+body; the original exception is kept as the cause, and for protocol errors the
+raw JSON can be kept in `raw_response`. Truncation and refusals come back as
+normal response fields.
 
-## Another provider or a local model
+## Adding a backend
 
-Implement `generate` in a subclass of `ModelBackend`, translate the common
-messages and tool definitions into that model's input, then return a
-`ModelResponse`. A local backend follows the same contract. SDK imports and
-provider-specific options belong in the adapter.
+Subclass `ModelBackend`, convert the messages and tools into what the model
+expects, and return a `ModelResponse`. SDK imports and provider options stay in
+the adapter.
 
-Importing `astrotoolbench.models` does not import OpenAI, load credentials or
-contact a provider. Only the API adapter needs the `llm` extra. The tests use
-fake responses; no model evaluation has been run through this new interface yet.
+Importing `astrotoolbench.models` doesn't import OpenAI, Torch or Transformers,
+read keys or call anything.
 
-`HuggingFaceBackend` implements local text generation with a pinned checkpoint
-and greedy decoding. Its optional dependencies are in `.[local]`; importing the
-interface does not import Torch or Transformers. It loads weights when the
-backend is constructed, before per-task timing, and rejects tool requests.
+`HuggingFaceBackend` runs a pinned local checkpoint with greedy decoding
+(`.[local]`). Weights are loaded once when the backend is created, before any
+task timer. For Qwen, tools and tool results go through its own chat template,
+and the `<tool_call>` blocks it generates are parsed into `ToolCall`s. The raw
+text stays in `raw_content`. If a block can't be parsed, the response comes
+back with `finish_reason="invalid_tool_call"` instead of raising, since that's
+the model's mistake and should be counted as such.
 
-The selected profiles are described in [baseline models](baseline-models.md).
-The first experiment using this interface is [baseline A](no-tools-baseline.md).
+Models: [baseline models](baseline-models.md). Experiments:
+[baseline A](no-tools-baseline.md), [baseline B](raw-tools-baseline.md).

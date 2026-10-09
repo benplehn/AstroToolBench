@@ -6,36 +6,17 @@ import os
 from pathlib import Path
 from time import perf_counter_ns
 
-from ..benchmark import BENCHMARK_COMMIT, BENCHMARK_TAG, load_frozen_benchmark
-from ..benchmark.comparison import matches_answer
-from ..benchmark.loader import _unique_object
+from ..benchmark import load_frozen_benchmark
 from ..benchmark.schema import BenchmarkTask
 from ..models import BackendError, ModelBackend
 from ..models.catalog import ModelProfile
 from .prompts import build_messages
-
-
-def _parse_answer(text: str | None) -> dict | None:
-    def nonfinite(value):
-        raise ValueError(f"Nonfinite JSON number: {value}")
-
-    try:
-        parsed = json.loads(text or "", object_pairs_hook=_unique_object, parse_constant=nonfinite)
-        return parsed if isinstance(parsed, dict) else None
-    except (ValueError, TypeError):
-        return None
+from .common import grade_response, new_result
 
 
 def evaluate_task(task: BenchmarkTask, backend: ModelBackend, *, model: str) -> dict:
     messages = build_messages(task)
-    result = {
-        "task_id": task.id, "family": task.family, "difficulty": task.difficulty,
-        "category": task.category, "split": task.split, "model": model,
-        "condition": "no_tools", "benchmark": BENCHMARK_TAG, "benchmark_commit": BENCHMARK_COMMIT,
-        "answer": None, "correct": False, "input_tokens": None, "output_tokens": None,
-        "response": None, "error": None,
-        "messages": [message.model_dump(mode="json") for message in messages],
-    }
+    result = new_result(task, model, "no_tools", messages)
     started = perf_counter_ns()
     try:
         response = backend.generate(messages, tools=None)
@@ -48,22 +29,9 @@ def evaluate_task(task: BenchmarkTask, backend: ModelBackend, *, model: str) -> 
     result.update(
         answer=response.content, response=response.model_dump(mode="json"),
         input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens,
+        usage_complete=None not in (response.usage.input_tokens, response.usage.output_tokens),
     )
-    if response.tool_calls:
-        status = "unexpected_tool_call"
-    elif response.refusal is not None or response.finish_reason == "content_filter":
-        status = "refused"
-    elif response.finish_reason == "length":
-        status = "truncated"
-    elif response.finish_reason != "stop":
-        status = "incomplete_response"
-    elif not response.content or not response.content.strip():
-        status = "empty_response"
-    else:
-        answer = _parse_answer(response.content)
-        status = "completed" if answer is not None else "invalid_answer"
-        result["correct"] = answer is not None and matches_answer(task, answer)
-    result["status"] = status
+    grade_response(result, task, response)
     return result
 
 

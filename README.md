@@ -86,7 +86,7 @@ This obviously says nothing about what's in a model's pretraining data.
 src/astrotoolbench/tools/       scientific tools
 src/astrotoolbench/benchmark/   schema, loader, task definitions, verification
 src/astrotoolbench/models/      common model interface, optional API adapter
-src/astrotoolbench/eval/        no-tools baseline and JSONL results
+src/astrotoolbench/eval/        no-tools / raw-tools baselines and traces
 src/astrotoolbench/validate.py  validation command
 tasks/astrodynamics/            task sources, references, split manifest
 schemas/                        JSON Schemas
@@ -115,31 +115,33 @@ More docs: [tools](docs/scientific-tools.md) · [task format](docs/task-format.m
 
 ## Model experiments
 
-The next model runs will use the frozen `benchmark-v0.1` corpus. The
-[frozen loader](docs/benchmark-freeze.md) checks file hashes before returning any
-tasks, including their IDs, families, references and tolerances.
+Model runs use the frozen `benchmark-v0.1` corpus: the
+[frozen loader](docs/benchmark-freeze.md) checks file hashes before returning
+any task, so every result is computed on exactly the same tasks.
 
-Four [model profiles](docs/baseline-models.md) are selected: Claude Sonnet 4.6,
-Gemini 2.5 Pro, Nemotron 3.5 Lightning and a pinned Qwen 4B checkpoint. Hosted
-models use the existing API adapter; Qwen has a local Hugging Face backend.
+I picked four [models](docs/baseline-models.md): Claude Sonnet 4.6, Gemini 2.5
+Pro, Nemotron 3.5 Lightning and Qwen3 4B (local, pinned). They all go through the
+same small [backend interface](docs/model-backends.md).
 
-The [no-tools baseline](docs/no-tools-baseline.md) runs one turn per task and
-saves answers, correctness, tokens and latency in JSONL. Preview a request
-without contacting a model:
+Two conditions so far:
+
+- [**no_tools**](docs/no-tools-baseline.md): one turn, the model answers alone.
+- [**raw_tools**](docs/raw-tools-baseline.md): the model can call the scientific
+  functions as they are, with their Python names and one-line docstrings.
 
 ```bash
+# preview a request, no API call
 python -m astrotoolbench.eval --model nemotron --task prop-circular-quarter --dry-run
-```
 
-To run the held-out split, install `.[llm]`, set `NVIDIA_API_KEY`, then:
-
-```bash
+# run the test split (needs .[llm] and NVIDIA_API_KEY)
 python -m astrotoolbench.eval --model nemotron --condition no_tools --split test
+python -m astrotoolbench.eval --model nemotron --condition raw_tools --split test
 ```
 
-Results go to `results/nemotron/no_tools.jsonl`; existing runs are never
-overwritten. The tool-assisted condition and measured model comparisons are
-still to come. See [model backends](docs/model-backends.md) for the interface.
+Results go to `results/<profile>/<condition>.jsonl` and are never overwritten.
+With tools, each task also gets a trace file with every call, its arguments,
+result or error and timing. Everything is tested offline with fake models; real
+numbers are coming.
 
 Before building the official dataset, I wrote a first prototype (`atb` package)
 that runs a model in a tool-calling loop against these tools, with three

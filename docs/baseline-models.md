@@ -1,45 +1,44 @@
 # Models for the first comparison
 
-Four profiles are defined in `astrotoolbench.models.catalog`. They cover two
-hosted model developers, NVIDIA, and a small checkpoint we can later train.
+Four profiles in `astrotoolbench.models.catalog`: two big hosted models from
+different companies, NVIDIA's model, and a small open model I can fine-tune
+later.
 
-| Profile | Model | How it runs |
+| Profile | Model | Runs on |
 | --- | --- | --- |
 | `claude` | `anthropic/claude-sonnet-4.6` | OpenRouter, `OPENROUTER_API_KEY` |
 | `gemini` | `google/gemini-2.5-pro` | OpenRouter, `OPENROUTER_API_KEY` |
 | `nemotron` | `nvidia/nemotron-3.5-lightning-30b-a3b` | NVIDIA API, `NVIDIA_API_KEY` |
-| `qwen` | `Qwen/Qwen3-4B-Instruct-2507` | Local Hugging Face backend |
+| `qwen` | `Qwen/Qwen3-4B-Instruct-2507` | local, Hugging Face |
 
-Claude is the large hosted reference. Gemini gives us a comparison from a
-second developer; the stable 2.5 Pro ID avoids starting this baseline on a
-preview alias. Nemotron keeps the NVIDIA model already used by the prototype.
-Qwen 4B is the smaller open-weight model for later post-training work.
+Why these:
+- **Claude Sonnet**: the strong hosted reference.
+- **Gemini 2.5 Pro**: a second big model, to check the conclusions don't depend
+  on one company. I used the stable ID rather than a preview alias.
+- **Nemotron 3.5 Lightning**: the NVIDIA model I already used in the prototype.
+- **Qwen3 4B**: small open model, the candidate for post-training later.
 
-Model pages checked on 2026-10-07 for this selection:
+Model pages I checked on 2026-10-07:
 [Claude](https://openrouter.ai/anthropic/claude-sonnet-4.6),
 [Gemini](https://openrouter.ai/google/gemini-2.5-pro),
 [Nemotron](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16),
 [Qwen](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507).
-These are selection notes, not benchmark results or a claim that these are the
-latest models. API access still depends on the account and provider.
 
-The Qwen weights and tokenizer use revision
-`cdbee75f17c01a7cc42f958dc650907174af0554`. Hosted APIs do not expose an equivalent
-checkpoint hash. Results record both the requested profile and the model ID
-returned by the API. Claude and Gemini go through a gateway, so their timing
-includes OpenRouter routing and network overhead.
+Qwen is pinned to revision `cdbee75f17c01a7cc42f958dc650907174af0554`. Hosted
+APIs don't give a checkpoint hash, so results store both the profile and the
+model ID returned by the API. Claude and Gemini go through OpenRouter, so their
+latency includes the extra hop.
 
-Profiles deliberately ignore generic `LLM_MODEL`, `LLM_BASE_URL` and
-`LLM_API_KEY` overrides. They use the exact model, endpoint and provider key
-listed above, with process variables taking precedence over an explicit `.env`
-file. This keeps a leftover prototype setting from changing the comparison.
+The profiles ignore `LLM_MODEL`, `LLM_BASE_URL` and `LLM_API_KEY` on purpose:
+each one always uses the model, endpoint and key in the table (environment
+variables win over `.env`). That way an old prototype setting can't silently
+change the comparison.
 
 ```bash
 python -m astrotoolbench.eval --list-models
 ```
 
-Install `.[llm]` for the three hosted profiles, or `.[local]` for Qwen. The local
-backend loads the pinned checkpoint once, uses greedy decoding and counts tokens
-with its tokenizer. Select `--device cpu`, `cuda` or `mps` explicitly;
-`--local-files-only` disables downloads. The local backend currently supports
-text conversations without tools, which is what baseline A needs.
+Install `.[llm]` for the hosted models, `.[local]` for Qwen. Qwen is loaded once,
+uses greedy decoding and counts tokens with its tokenizer. Pick `--device cpu`,
+`cuda` or `mps`; `--local-files-only` blocks downloads. Qwen works for both
+conditions, including tool calls in [baseline B](raw-tools-baseline.md).

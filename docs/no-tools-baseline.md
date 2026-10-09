@@ -1,33 +1,28 @@
 # Baseline A: no tools
 
-Each task gets one model turn with the same system prompt and public task data.
-No tool definitions are sent and no scientific function is executed on behalf
-of the model.
+One model turn per task, no tools. This measures what the model can do on its
+own.
 
-The request contains the original problem text, input values and units, and
-physical context. It excludes references, numerical tolerances, recipes,
-verification details, notes and difficulty labels. The prompt asks for exactly
-one JSON object, matching the existing scientific comparator:
+The request has the problem text, input values with units and the physical
+context. No reference, tolerance, recipe, verification details, notes or
+difficulty label. The model has to answer with one JSON object:
 
 ```json
 {"outputs": {"delta_v": 1.25}}
 ```
 
-For an invalid request:
+or, for an invalid request:
 
 ```json
 {"error": "missing_input", "reason": "The initial velocity is missing."}
 ```
 
-The error reason must be nonempty; its semantic correctness is not evaluated by
-the deterministic comparator. Numerical outputs use the committed per-output
-tolerances, vectors are compared component by component, and booleans and error
-codes must match exactly. Difficulty does not decide whether a task should be
-refused.
+The reason just has to be non-empty; I don't grade the explanation. Numbers use
+each output's tolerance, vectors are compared component by component, booleans
+and error codes must match exactly. A trap task doesn't automatically mean
+"refuse".
 
-## Run or inspect a request
-
-From the repository root, after installing the package:
+## Running it
 
 ```bash
 python -m pip install -e ".[dev,llm]"
@@ -35,39 +30,47 @@ python -m astrotoolbench.eval --model nemotron --task prop-circular-quarter --dr
 python -m astrotoolbench.eval --model nemotron --condition no_tools --split test
 ```
 
-Without a split filter, the command runs all 50 frozen tasks. `--task` and
-`--family` can narrow the selection. The full corpus and companion hashes are
-checked before any model call, including when running a single task. A dry run
-needs no API key and does not load weights or create result files.
+Without `--split`, all 50 tasks run. `--task` and `--family` narrow it down. The
+whole frozen corpus is hash-checked before any call, even for a single task.
+`--dry-run` needs no key, loads no weights and writes nothing.
 
-The default result path is `results/<profile>/no_tools.jsonl`. Use `--output` for
-a different run; existing files are never overwritten. `--max-tokens`,
-`--timeout` and `--env-file` are explicit request options. See
-[model selection](baseline-models.md) for keys and local model setup.
+Results go to `results/<profile>/no_tools.jsonl` (or `--output`). Existing files
+are never overwritten. Other options: `--max-tokens`, `--timeout`, `--env-file`.
+Keys and local setup: see [models](baseline-models.md).
 
-Each JSONL line stores the task ID, family, difficulty, category, split, frozen
-benchmark tag and commit, requested model profile, generation settings, exact
-messages, raw answer text, normalized response, correctness, tokens and latency
-in milliseconds. The returned model ID is retained in `response.model`.
-Credentials and references are not written.
+Each line has: task ID, family, difficulty, category, split, benchmark tag and
+commit, model profile, generation settings, the exact messages, the raw answer,
+the parsed response, `correct`, `format_ok`, tokens and latency (ms). The model ID
+actually returned by the API is in `response.model`. No keys, no references.
 
-Only a complete response with finish reason `stop` and a valid JSON object is
-compared. Extra prose, Markdown fences, duplicate keys and nonfinite JSON
-constants are rejected. Truncation, refusal, empty responses and unexpected tool
-calls stay in the results with `correct=false` and a distinct `status`. An API
-refusal differs from a scientific diagnostic returned in the required JSON.
-Unknown token counts stay `null`.
+## Scoring
 
-Provider errors are recorded and the run continues to the next task. Programming
-errors stop the run, preserving previous lines. Each line is flushed to disk
-before the next call. A finished experiment exits with 0 even if answers are
-wrong; backend or setup failures exit with 1.
+Only a finished response (`finish_reason` = `stop`) is scored. Two separate
+things are recorded:
 
-Latency covers one `generate` call. API connection setup and network time are
-included. Local model loading happens before the task timer. Temperature is 0
-for hosted profiles; local decoding uses `do_sample=false`. Neither setting
-guarantees identical answers across hosted model updates or different hardware.
+- `format_ok`: the whole answer is a single valid JSON object, as asked.
+- `correct`: the answer has the right values. If the JSON is wrapped in
+  ```` ```json ```` fences or some text, the last object with `outputs` or `error`
+  is used. So a right value with bad formatting is `correct: true,
+  format_ok: false`.
 
-The implementation has been tested offline with fake responses covering all 50
-tasks. Those checks are not model baselines. Real runs need the API keys or the
-local dependencies and weights; no measured A-vs-B table exists yet.
+Duplicate keys and NaN/Infinity are rejected either way. Truncated, refused,
+empty answers and unexpected tool calls are kept with `correct: false` and their
+own `status`. An API refusal is not the same as a scientific error returned in
+the JSON. Missing token counts stay `null`.
+
+If the provider fails, it's recorded and the run moves on. A bug in my code stops
+the run, but earlier lines are kept (each line is flushed before the next call).
+Exit code 0 means the run finished, even with wrong answers; 1 means backend or
+setup errors.
+
+Latency is one `generate` call, network included. Loading a local model happens
+before the timer. Temperature is 0 for hosted models and `do_sample=false`
+locally, which still doesn't guarantee identical answers over time or across
+hardware.
+
+So far this has only been tested offline with fake responses on all 50 tasks.
+No real A vs B numbers yet.
+
+[Baseline B](raw-tools-baseline.md) uses the same messages and scoring, plus the
+scientific functions and a tool loop.

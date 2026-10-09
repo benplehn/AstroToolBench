@@ -62,6 +62,7 @@ class ModelResponse(_Model):
     tool_calls: tuple[ToolCall, ...] = ()
     finish_reason: str | None = None
     refusal: str | None = None
+    raw_content: str | None = None
     usage: TokenUsage = Field(default_factory=TokenUsage)
 
     @model_validator(mode="after")
@@ -76,9 +77,10 @@ class ModelResponse(_Model):
 class BackendError(RuntimeError):
     """A generation failure, independent of a provider's exception classes."""
 
-    def __init__(self, message: str, *, status_code: int | None = None):
+    def __init__(self, message: str, *, status_code: int | None = None, raw_response: dict | None = None):
         super().__init__(message)
         self.status_code = status_code
+        self.raw_response = raw_response
 
 
 class BackendProtocolError(BackendError):

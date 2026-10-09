@@ -55,7 +55,8 @@ def _normalize(response) -> ModelResponse:
         )
     except (AttributeError, TypeError, ValueError) as error:
         # Validation details may contain provider text; keep them out of the error.
-        raise BackendProtocolError("The provider returned an invalid completion response.") from error
+        raw = response.model_dump(mode="json") if hasattr(response, "model_dump") else None
+        raise BackendProtocolError("The provider returned an invalid completion response.", raw_response=raw) from error
 
 
 class OpenAIBackend(ModelBackend):

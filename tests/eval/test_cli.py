@@ -48,7 +48,8 @@ def test_one_task_runs_and_saves_even_a_wrong_answer(monkeypatch, capsys, tmp_pa
     assert "Saved 1 tasks" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("options", [["--max-tokens", "0"], ["--timeout", "nan"], ["--condition", "raw_tools"]])
+@pytest.mark.parametrize("options", [["--max-tokens", "0"], ["--timeout", "nan"], ["--condition", "unknown"],
+                                   ["--max-steps", "0"], ["--max-tool-calls", "0"]])
 def test_invalid_settings_or_unimplemented_condition_rejected_before_backend(monkeypatch, options):
     constructor = MagicMock()
     monkeypatch.setattr(command, "create_backend", constructor)
@@ -76,3 +77,32 @@ def test_backend_failure_is_persisted_with_nonzero_exit(monkeypatch, tmp_path, c
     assert command.main(["--model", "nemotron", "--root", str(ROOT), "--task", corpus[0].id,
                          "--output", str(output)]) == 1
     assert json.loads(output.read_text())["status"] == "backend_error"
+
+
+def test_raw_dry_run_shares_a_messages_and_lists_native_tools(monkeypatch, capsys, corpus):
+    constructor = MagicMock()
+    monkeypatch.setattr(command, "create_backend", constructor)
+    arguments = ["--model", "nemotron", "--root", str(ROOT), "--task", corpus[0].id, "--dry-run"]
+    assert command.main(arguments) == 0
+    baseline = json.loads(capsys.readouterr().out)
+    assert command.main([*arguments, "--condition", "raw_tools"]) == 0
+    raw = json.loads(capsys.readouterr().out)
+    assert raw["requests"] == baseline["requests"]
+    assert len(raw["tools"]) == 10
+    assert "tools" not in baseline
+    assert raw["max_steps"] == 8
+    constructor.assert_not_called()
+
+
+def test_raw_command_saves_multi_turn_results(monkeypatch, tmp_path, corpus):
+    backend = MagicMock()
+    backend.generate.return_value = ModelResponse(model="fake", content="{}", finish_reason="stop")
+    monkeypatch.setattr(command, "create_backend", MagicMock(return_value=backend))
+    output = tmp_path / "raw_tools.jsonl"
+    assert command.main(["--model", "nemotron", "--condition", "raw_tools", "--root", str(ROOT),
+                         "--task", corpus[0].id, "--output", str(output)]) == 0
+    record = json.loads(output.read_text())
+    assert record["condition"] == "raw_tools"
+    assert len(record["tools"]) == 10
+    assert len(record["steps"]) == 1
+    assert Path(record["trace_path"]).exists()
